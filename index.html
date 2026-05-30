@@ -59,7 +59,7 @@
 </div>
 
 <!-- 記憶數字 -->
-<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">82</b></div>
+<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">249</b></div>
 
 <!-- 收藏景點縮圖預覽 -->
 <div id="favorite-preview" class="favorite-preview" style="display: none;">
@@ -83,25 +83,22 @@
     </div>
     <div class="menu-item" id="menu-monthly">
         <div class="menu-trigger" id="monthly-mode-trigger" onclick="toggleMonthlyPanel()">📅 每月必去</div>
-        <div class="menu-dropdown-vertical" id="dropdown-monthly"></div>
-    </div>
-</div>
-
-<!-- 每月必去月份選單（彈窗 - 3x4 網格） -->
-<div id="monthly-panel" class="monthly-panel">
-    <div class="monthly-grid-3x4">
-        <div class="monthly-item" onclick="filterByMonth(1)">1月</div>
-        <div class="monthly-item" onclick="filterByMonth(2)">2月</div>
-        <div class="monthly-item" onclick="filterByMonth(3)">3月</div>
-        <div class="monthly-item" onclick="filterByMonth(4)">4月</div>
-        <div class="monthly-item" onclick="filterByMonth(5)">5月</div>
-        <div class="monthly-item" onclick="filterByMonth(6)">6月</div>
-        <div class="monthly-item" onclick="filterByMonth(7)">7月</div>
-        <div class="monthly-item" onclick="filterByMonth(8)">8月</div>
-        <div class="monthly-item" onclick="filterByMonth(9)">9月</div>
-        <div class="monthly-item" onclick="filterByMonth(10)">10月</div>
-        <div class="monthly-item" onclick="filterByMonth(11)">11月</div>
-        <div class="monthly-item" onclick="filterByMonth(12)">12月</div>
+        <div id="monthly-panel" class="monthly-panel">
+            <div class="monthly-grid-3x4">
+                <div class="monthly-item" onclick="filterByMonth(1); toggleMonthlyPanel()">1月</div>
+                <div class="monthly-item" onclick="filterByMonth(2); toggleMonthlyPanel()">2月</div>
+                <div class="monthly-item" onclick="filterByMonth(3); toggleMonthlyPanel()">3月</div>
+                <div class="monthly-item" onclick="filterByMonth(4); toggleMonthlyPanel()">4月</div>
+                <div class="monthly-item" onclick="filterByMonth(5); toggleMonthlyPanel()">5月</div>
+                <div class="monthly-item" onclick="filterByMonth(6); toggleMonthlyPanel()">6月</div>
+                <div class="monthly-item" onclick="filterByMonth(7); toggleMonthlyPanel()">7月</div>
+                <div class="monthly-item" onclick="filterByMonth(8); toggleMonthlyPanel()">8月</div>
+                <div class="monthly-item" onclick="filterByMonth(9); toggleMonthlyPanel()">9月</div>
+                <div class="monthly-item" onclick="filterByMonth(10); toggleMonthlyPanel()">10月</div>
+                <div class="monthly-item" onclick="filterByMonth(11); toggleMonthlyPanel()">11月</div>
+                <div class="monthly-item" onclick="filterByMonth(12); toggleMonthlyPanel()">12月</div>
+            </div>
+        </div>
     </div>
 </div>
 

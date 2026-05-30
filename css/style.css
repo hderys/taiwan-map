@@ -64,7 +64,6 @@ svg {
 .reg-islands { fill: #cccccc !important; }
 .reg-system { fill: #ffd700 !important; }
 
-/* ========== 地圖上的文字 ========== */
 .county-label {
     fill: #fff;
     font-size: 1vw;
@@ -149,7 +148,6 @@ svg {
     stroke-width: 0.5px;
 }
 
-/* ========== 右側照片面板（桌面版）========== */
 .photo-panel {
     position: fixed;
     right: -50%;
@@ -265,7 +263,6 @@ body.panel-open .main-content {
     word-wrap: break-word;
 }
 
-/* ========== 桌面版收藏星星 - 放大到容易點擊 ========== */
 .thumb-card .favorite-star {
     position: absolute;
     top: 0.8vw;
@@ -294,7 +291,6 @@ body.panel-open .main-content {
     background: rgba(0,0,0,0.3);
 }
 
-/* ========== 左上角外島區塊（桌面版-水平）========== */
 .island-bar {
     position: absolute;
     top: 2vh;
@@ -343,7 +339,6 @@ body.panel-open .main-content {
     font-family: 'Microsoft JhengHei', sans-serif;
 }
 
-/* ========== 搜尋框（桌面版保留，手機版隱藏）========== */
 .search-area {
     position: absolute;
     top: 2vh;
@@ -416,7 +411,6 @@ body.panel-open .main-content {
 
 .search-result-item:hover { background: var(--accent); color: #000; }
 
-/* ========== 左下方選單（桌面版-垂直）========== */
 .menu-stack {
     position: absolute;
     bottom: 3vh;
@@ -502,7 +496,6 @@ body.panel-open .main-content {
     object-fit: contain;
 }
 
-/* ========== 巡航按鈕 ========== */
 .cruise-area {
     position: absolute;
     bottom: 3vh;
@@ -538,7 +531,6 @@ body.panel-open .main-content {
     transition: 0.2s;
 }
 
-/* ========== 收藏包裝器 ========== */
 .favorite-wrapper {
     position: absolute;
     bottom: 3vh;
@@ -658,7 +650,6 @@ body.panel-open .main-content {
     font-family: 'Microsoft JhengHei', sans-serif;
 }
 
-/* ========== 右上控制項 ========== */
 .fixed-controls {
     position: fixed;
     top: 2vh;
@@ -732,7 +723,6 @@ body.panel-open .main-content {
     color: #000;
 }
 
-/* 收藏景點縮圖預覽 */
 .favorite-preview {
     position: fixed;
     bottom: 8vh;
@@ -763,7 +753,6 @@ body.panel-open .main-content {
     text-overflow: ellipsis;
 }
 
-/* 彈窗 */
 #modal-overlay {
     position: fixed;
     top: 0;
@@ -796,7 +785,6 @@ body.panel-open .main-content {
 
 .playing { animation: spin 3s linear infinite; }
 
-/* ========== 深色/淺色主題 ========== */
 :root[data-theme="light"] {
     --main-bg: #f0f0f0;
     --panel-bg: #ffffff;
@@ -863,7 +851,6 @@ body.panel-open .main-content {
     stroke-width: 2px;
 }
 
-/* 懸浮變亮效果 */
 .vertical-item {
     transition: all 0.2s ease;
     cursor: pointer;
@@ -875,7 +862,6 @@ body.panel-open .main-content {
     transform: scale(1.02);
 }
 
-/* ========== 響應式設計 - 平板 (768px - 1024px) ========== */
 @media (max-width: 1024px) and (min-width: 769px) {
     .thumb-card { width: 22vw; }
     .thumb-card p { font-size: 1.4vw; }
@@ -883,7 +869,6 @@ body.panel-open .main-content {
     .vertical-item img { width: 5vw; height: 5vw; }
 }
 
-/* ========== 桌面版四方向按鈕 ========== */
 .mobile-dpad {
     position: fixed;
     bottom: 3vh;
@@ -938,7 +923,6 @@ body.panel-open .main-content {
     white-space: nowrap;
 }
 
-/* ========== 手機版 ========== */
 @media (max-aspect-ratio: 1/1) {
     body {
         flex-direction: column;
@@ -1140,12 +1124,10 @@ body.panel-open .main-content {
         z-index: 200;
     }
     
-    /* 手機版隱藏搜尋框 */
     .search-area {
         display: none;
     }
     
-     /* 手機版四方向按鈕 - 你的正確設定 */
     .mobile-dpad {
         position: fixed;
         top: 1.5vh;
@@ -1316,7 +1298,6 @@ body.panel-open .main-content {
     #modal-title { font-size: 1rem; }
 }
 
-/* ========== 轉乘站金邊閃爍動畫 ========== */
 @keyframes goldPulse {
     0% {
         stroke: #ffd700;
@@ -1345,7 +1326,6 @@ body.panel-open .main-content {
     fill: #ffffff;
 }
 
-/* 重置視角按鈕樣式 */
 .reset-view-btn {
     width: 4.5vw;
     height: 4.5vw;
@@ -1372,15 +1352,7 @@ body.panel-open .main-content {
     }
 }
 
-/* ========== 美食模式按鈕啟用樣式 ========== */
-.food-mode-active {
-    background: var(--accent) !important;
-    color: #000 !important;
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 10px var(--accent);
-}
-
-/* ========== 每月必去月份選單（彈窗 - 3x4 網格） ========== */
+/* ========== 每月必去月份選單 ========== */
 .monthly-panel {
     position: absolute;
     left: 100%;
@@ -1423,7 +1395,15 @@ body.panel-open .main-content {
     color: #000;
 }
 
-/* 手機版每月必去選單 */
+/* 美食模式按鈕啟用樣式 */
+.food-mode-active {
+    background: var(--accent) !important;
+    color: #000 !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 10px var(--accent);
+}
+
+/* 手機版每月必去 */
 @media (max-aspect-ratio: 1/1) {
     .monthly-panel {
         left: 100%;
