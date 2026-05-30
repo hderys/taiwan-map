@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>台灣景點照片地圖 | 249個台灣回憶景點</title>
+    <meta name="description" content="探索台灣249個景點照片，從台北101到墾丁沙灘，從阿里山到太魯閣，互動地圖帶你回憶台灣之美。">
+    <meta name="keywords" content="台灣景點,台灣地圖,台灣旅遊,景點照片,台灣回憶,台北101,日月潭,阿里山">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DR6J5T61EL"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-DR6J5T61EL');
+    </script>
+</head>
+<body>
+<div class="main-content">
+    <div id="map-container">
+        <svg id="taiwan-map"></svg>
+    </div>
+</div>
+
+<!-- 固定右上角控制項 -->
+<div class="fixed-controls">
+    <div class="theme-toggle" onclick="toggleTheme()">🌙</div>
+    <div id="music-toggle" onclick="toggleMusic()">🎵</div>
+    <audio id="bgm-audio" loop><source src="bgm.mp3" type="audio/mpeg"></audio>
+    <div class="map-controls">
+        <button id="zoom-in">➕</button>
+        <button id="zoom-out">➖</button>
+        <button class="reset-view-btn" onclick="resetMapView()">🎯</button>
+    </div>
+</div>
+
+<!-- 左上角外島區塊 -->
+<div class="island-bar">
+    <div id="btn-Kinmen" class="island-btn" onclick="clickIsland('金門縣', this)" onmouseenter="hoverIsland('金門縣')" onmouseleave="clearIslandHover()">🏝️ 金門縣</div>
+    <div id="btn-Lienchiang" class="island-btn" onclick="clickIsland('連江縣', this)" onmouseenter="hoverIsland('連江縣')" onmouseleave="clearIslandHover()">🏝️ 連江縣(馬祖)</div>
+    <div id="btn-Penghu" class="island-btn" onclick="clickIsland('澎湖縣', this)" onmouseenter="hoverIsland('澎湖縣')" onmouseleave="clearIslandHover()">🏝️ 澎湖縣</div>
+</div>
+
+<!-- 手機版四方向按鈕（取代搜尋框） -->
+<div class="mobile-dpad">
+    <div class="dpad-up">
+        <button class="dpad-btn" id="dpad-up" onclick="moveDirection('N')">⬆️</button>
+    </div>
+    <div class="dpad-middle">
+        <button class="dpad-btn" id="dpad-left" onclick="moveDirection('W')">⬅️</button>
+        <span class="dpad-text">選擇縣市</span>
+        <button class="dpad-btn" id="dpad-right" onclick="moveDirection('E')">➡️</button>
+    </div>
+    <div class="dpad-down">
+        <button class="dpad-btn" id="dpad-down" onclick="moveDirection('S')">⬇️</button>
+    </div>
+</div>
+
+<!-- 記憶數字 -->
+<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">82</b></div>
+
+<!-- 收藏景點縮圖預覽 -->
+<div id="favorite-preview" class="favorite-preview" style="display: none;">
+    <img id="preview-img" src="">
+    <div id="preview-title"></div>
+</div>
+
+<!-- 左下方選單 -->
+<div class="menu-stack">
+    <div class="menu-item" id="menu-taiwan">
+        <div class="menu-trigger" onclick="toggleMenu('taiwan')">🏝️ 認識臺灣</div>
+        <div class="menu-dropdown-vertical" id="dropdown-taiwan"></div>
+    </div>
+    <div class="menu-item" id="menu-transport">
+        <div class="menu-trigger" onclick="toggleMenu('transport')">🚗 交通運輸</div>
+        <div class="menu-dropdown-vertical" id="dropdown-transport"></div>
+    </div>
+    <div class="menu-item" id="menu-food">
+        <div class="menu-trigger" id="food-mode-trigger" onclick="toggleFoodMode()">🍜 美食推介</div>
+        <div class="menu-dropdown-vertical" id="dropdown-food"></div>
+    </div>
+    <div class="menu-item" id="menu-monthly">
+        <div class="menu-trigger" id="monthly-mode-trigger" onclick="toggleMonthlyPanel()">📅 每月必去</div>
+        <div class="menu-dropdown-vertical" id="dropdown-monthly"></div>
+    </div>
+</div>
+
+<!-- 每月必去月份選單（彈窗 - 3x4 網格） -->
+<div id="monthly-panel" class="monthly-panel">
+    <div class="monthly-grid-3x4">
+        <div class="monthly-item" onclick="filterByMonth(1)">1月</div>
+        <div class="monthly-item" onclick="filterByMonth(2)">2月</div>
+        <div class="monthly-item" onclick="filterByMonth(3)">3月</div>
+        <div class="monthly-item" onclick="filterByMonth(4)">4月</div>
+        <div class="monthly-item" onclick="filterByMonth(5)">5月</div>
+        <div class="monthly-item" onclick="filterByMonth(6)">6月</div>
+        <div class="monthly-item" onclick="filterByMonth(7)">7月</div>
+        <div class="monthly-item" onclick="filterByMonth(8)">8月</div>
+        <div class="monthly-item" onclick="filterByMonth(9)">9月</div>
+        <div class="monthly-item" onclick="filterByMonth(10)">10月</div>
+        <div class="monthly-item" onclick="filterByMonth(11)">11月</div>
+        <div class="monthly-item" onclick="filterByMonth(12)">12月</div>
+    </div>
+</div>
+
+<!-- 巡航按鈕 -->
+<div class="cruise-area">
+    <div class="cruise-btn" onclick="toggleCruiseMaster()">
+        <div id="cruise-dot"></div>
+        <span id="cruise-text">巡航中</span>
+    </div>
+</div>
+
+<!-- 收藏按鈕 + 面板 -->
+<div class="favorite-wrapper">
+    <div class="favorite-btn" onclick="toggleFavoritePanel()">
+        ⭐ 我的收藏
+        <span id="favorite-count" class="favorite-count">0</span>
+    </div>
+    <div id="favorite-panel" class="favorite-panel-dropup">
+        <div class="favorite-panel-title">⭐ 我的收藏</div>
+        <div id="favorite-list" class="favorite-list"></div>
+    </div>
+</div>
+
+<!-- 右側照片面板 -->
+<div id="photoPanel" class="photo-panel">
+    <div class="panel-handle" onclick="togglePhotoPanel()" id="panel-handle-text">📷 收起照片</div>
+    <div class="panel-title"><span id="cname">等待探索</span></div>
+    <div id="thumb-grid"></div>
+</div>
+
+<!-- 彈窗 -->
+<div id="modal-overlay" onclick="closeModal()">
+    <div id="modal-box" onclick="event.stopPropagation()">
+        <img id="modal-img" src="">
+        <div id="modal-title" style="font-size:1.5em;color:var(--accent);margin-top:10px;"></div>
+    </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://unpkg.com/topojson@3"></script>
+<script src="js/data.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://fantastic-puffpuff-25bf39.netlify.app/</loc>
+        <lastmod>2026-05-30</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <!-- 縣市頁面（透過 JavaScript 載入，但還是列出幫助 SEO） -->
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=基隆市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=臺北市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=新北市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=桃園市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=新竹市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=新竹縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=苗栗縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=臺中市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=彰化縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=南投縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=雲林縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=嘉義市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=嘉義縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=臺南市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=高雄市</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=屏東縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=宜蘭縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=花蓮縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=臺東縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=澎湖縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=金門縣</loc></url>
+    <url><loc>https://fantastic-puffpuff-25bf39.netlify.app/?city=連江縣</loc></url>
+</urlset>
