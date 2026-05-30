@@ -2,7 +2,7 @@
 =================================================================
 檔案名稱: ui.js
 功    用: 介面互動邏輯控制
-版本: 3.1 (自動判斷環境 - 本機用本地路徑，線上用CDN)
+版本: 3.2 (修正月份選單、美食模式提示、互斥、懸浮亮燈)
 =================================================================
 */
 
@@ -239,7 +239,11 @@ function toggleFoodMode() {
     isFoodMode = !isFoodMode;
     const foodBtn = document.querySelector('#menu-food .menu-trigger');
     
+    // 如果開啟美食模式，關閉月份選單（互斥）
     if (isFoodMode) {
+        const monthlyPanel = document.getElementById("monthly-panel");
+        if (monthlyPanel) monthlyPanel.classList.remove("show");
+        isMonthlyPanelOpen = false;
         foodBtn.classList.add("food-mode-active");
         showToast("🍜 美食模式開啟，點擊縣市只看美食照片");
     } else {
@@ -270,12 +274,7 @@ function toggleMonthlyPanel() {
 }
 
 function filterByMonth(month) {
-    // 關閉面板
-    const panel = document.getElementById("monthly-panel");
-    if (panel) panel.classList.remove("show");
-    isMonthlyPanelOpen = false;
-    
-    // 顯示該月份的照片（跨縣市）
+    // 不關閉選單，只顯示該月份照片
     showMonthPhotos(month);
 }
 
@@ -316,7 +315,9 @@ function displayMonthPhotos(photos, monthStr) {
         const p = item.photo;
         const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.index);
         return `
-            <div class="thumb-card" style="position: relative;">
+            <div class="thumb-card" style="position: relative;"
+                 onmouseover="previewCounty('${item.county}')"
+                 onmouseleave="clearPreview()">
                 <img src="${photoBasePath}small${p.i}.webp" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModalFromMonth('${item.county}', ${item.index})">
                 <div class="favorite-star" 
                     data-county="${item.county}" 
@@ -340,7 +341,6 @@ function openModalFromMonth(county, index) {
     
     if (modalImg) modalImg.src = `${largePhotoBasePath}large${p.i}.webp`;
     if (modalTitle) {
-        // 顯示月份資訊
         let monthText = "";
         if (p.tags) {
             const months = p.tags.filter(t => t.match(/\d月/));
@@ -931,9 +931,13 @@ function renderThumbs(name) {
         photos = photos.filter(p => p.tags && p.tags.includes("美食"));
     }
     
-    // 設定標題（統一顯示縣市名稱）
+    // 設定標題
     if (cname) {
-        cname.innerText = name;
+        if (isFoodMode) {
+            cname.innerHTML = `${name}<br><span style="font-size: 0.6em; color: var(--accent);">🍜 美食模式中</span>`;
+        } else {
+            cname.innerText = name;
+        }
     }
     
     grid.innerHTML = photos.map((p, i) => {
@@ -1006,7 +1010,6 @@ function openModal(c, i) {
     
     if (modalImg) modalImg.src = `${largePhotoBasePath}large${p.i}.webp`;
     if (modalTitle) {
-        // 顯示月份資訊
         let monthText = "";
         if (p.tags) {
             const months = p.tags.filter(t => t.match(/\d月/));
