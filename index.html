@@ -36,11 +36,16 @@
     </div>
 </div>
 
-<!-- 左上角外島區塊 -->
+<!-- 左上角外島區塊 + 巡航按鈕 -->
 <div class="island-bar">
     <div id="btn-Kinmen" class="island-btn" onclick="clickIsland('金門縣', this)" onmouseenter="hoverIsland('金門縣')" onmouseleave="clearIslandHover()">🏝️ 金門縣</div>
     <div id="btn-Lienchiang" class="island-btn" onclick="clickIsland('連江縣', this)" onmouseenter="hoverIsland('連江縣')" onmouseleave="clearIslandHover()">🏝️ 連江縣(馬祖)</div>
     <div id="btn-Penghu" class="island-btn" onclick="clickIsland('澎湖縣', this)" onmouseenter="hoverIsland('澎湖縣')" onmouseleave="clearIslandHover()">🏝️ 澎湖縣</div>
+    <!-- 巡航按鈕 -->
+    <div id="cruise-btn" class="island-btn cruise-btn-header" onclick="toggleCruiseMaster()">
+        <div id="cruise-dot"></div>
+        <span id="cruise-text">開啟巡航模式</span>
+    </div>
 </div>
 
 <!-- 手機版四方向按鈕（取代搜尋框） -->
@@ -59,7 +64,7 @@
 </div>
 
 <!-- 記憶數字 -->
-<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">249</b></div>
+<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">321</b></div>
 
 <!-- 收藏景點縮圖預覽 -->
 <div id="favorite-preview" class="favorite-preview" style="display: none;">
@@ -102,15 +107,7 @@
     </div>
 </div>
 
-<!-- 巡航按鈕 -->
-<div class="cruise-area">
-    <div class="cruise-btn" onclick="toggleCruiseMaster()">
-        <div id="cruise-dot"></div>
-        <span id="cruise-text">巡航中</span>
-    </div>
-</div>
-
-<!-- 收藏按鈕 + 面板 -->
+<!-- 收藏按鈕 + 面板（巡航按鈕已移除外島區塊，此處刪除原 cruise-area） -->
 <div class="favorite-wrapper">
     <div class="favorite-btn" onclick="toggleFavoritePanel()">
         ⭐ 我的收藏
