@@ -2,7 +2,7 @@
 =================================================================
 檔案名稱: ui.js
 功    用: 介面互動邏輯控制
-版本: 3.8 (修正：每月必去照片顯示縣市標籤 + 地圖高亮)
+版本: 3.9 (修正：本機與線上照片路徑同時支援)
 =================================================================
 */
 
@@ -27,8 +27,27 @@ let nationalHighlightTimeout = null;
 
 // ========== 自動判斷環境（本機 vs 線上）==========
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const photoBasePath = isLocal ? 'web_photos_small/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/web_photos_small/';
-const largePhotoBasePath = isLocal ? 'web_photos_large/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/web_photos_large/';
+
+// 本機：使用本地資料夾；線上：直接從 CDN 根目錄取（無資料夾）
+const photoBasePath = isLocal ? 'web_photos_small/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
+const largePhotoBasePath = isLocal ? 'web_photos_large/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
+
+// 根據環境取得正確的照片網址
+function getSmallPhotoUrl(photoId) {
+    if (isLocal) {
+        return `${photoBasePath}${photoId}.webp`;
+    } else {
+        return `${photoBasePath}small${photoId}.webp`;
+    }
+}
+
+function getLargePhotoUrl(photoId) {
+    if (isLocal) {
+        return `${largePhotoBasePath}${photoId}.webp`;
+    } else {
+        return `${largePhotoBasePath}large${photoId}.webp`;
+    }
+}
 
 const bgm = document.getElementById("bgm-audio");
 
@@ -110,9 +129,9 @@ function openFavoriteSpot(index) {
         if (previewDiv && previewImg && previewTitle) {
             const photo = photoData[spot.county][spot.photoIndex];
             if (photo) {
-                previewImg.src = `${photoBasePath}${photo.i}.webp`;
+                previewImg.src = getSmallPhotoUrl(photo.i);
             } else {
-                previewImg.src = `${photoBasePath}${spot.photoIndex + 1}.jpg`;
+                previewImg.src = getSmallPhotoUrl(`${spot.photoIndex + 1}`);
             }
             previewTitle.innerText = spot.title;
             previewDiv.style.display = 'block';
@@ -306,7 +325,7 @@ function displayMonthPhotos(photos, monthStr) {
             <div class="thumb-card month-photo-card" style="position: relative;"
                  onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
                  onmouseleave="clearPreview()">
-                <img src="${photoBasePath}${p.i}.webp" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModalFromMonth('${item.county}', ${item.index})">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModalFromMonth('${item.county}', ${item.index})">
                 <div class="favorite-star" 
                     data-county="${item.county}" 
                     data-idx="${item.index}"
@@ -328,7 +347,7 @@ function openModalFromMonth(county, index) {
     const modalTitle = document.getElementById("modal-title");
     const modalOverlay = document.getElementById("modal-overlay");
     
-    if (modalImg) modalImg.src = `${largePhotoBasePath}${p.i}.webp`;
+    if (modalImg) modalImg.src = getLargePhotoUrl(p.i);
     if (modalTitle) {
         let monthText = "";
         if (p.tags) {
@@ -965,7 +984,7 @@ function renderThumbs(name) {
             <div class="thumb-card" style="position: relative;"
                  onmouseover="previewCountyWithNational('${name}', ${isNational})"
                  onmouseleave="clearPreview()">
-                <img src="${photoBasePath}${p.i}.webp" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${name}', ${i})">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${name}', ${i})">
                 <div class="favorite-star" 
                     data-county="${name}" 
                     data-idx="${i}"
@@ -1029,7 +1048,7 @@ function openModal(c, i) {
     const modalTitle = document.getElementById("modal-title");
     const modalOverlay = document.getElementById("modal-overlay");
     
-    if (modalImg) modalImg.src = `${largePhotoBasePath}${p.i}.webp`;
+    if (modalImg) modalImg.src = getLargePhotoUrl(p.i);
     if (modalTitle) {
         let monthText = "";
         if (p.tags) {
