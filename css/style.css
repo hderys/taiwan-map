@@ -64,14 +64,12 @@ svg {
 .reg-islands { fill: #cccccc !important; }
 .reg-system { fill: #ffd700 !important; }
 
-/* 全國性淡亮燈效果 */
 .reg-national {
     fill: var(--accent) !important;
     opacity: 0.3;
     filter: drop-shadow(0 0 5px var(--accent));
 }
 
-/* ========== 地圖上的文字 ========== */
 .county-label {
     fill: #fff;
     font-size: 1vw;
@@ -156,7 +154,6 @@ svg {
     stroke-width: 0.5px;
 }
 
-/* ========== 右側照片面板（桌面版）========== */
 .photo-panel {
     position: fixed;
     right: -50%;
@@ -272,7 +269,6 @@ body.panel-open .main-content {
     word-wrap: break-word;
 }
 
-/* ========== 桌面版收藏星星 - 放大到容易點擊 ========== */
 .thumb-card .favorite-star {
     position: absolute;
     top: 0.8vw;
@@ -301,19 +297,19 @@ body.panel-open .main-content {
     background: rgba(0,0,0,0.3);
 }
 
-/* ========== 左上角外島區塊（桌面版-水平）========== */
-.island-bar {
+.top-left-buttons {
     position: absolute;
     top: 2vh;
     left: 2vw;
+    display: flex;
+    flex-direction: column;
+    gap: 1vh;
     z-index: 150;
+}
+
+.island-row {
     display: flex;
     gap: 1.2vw;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(12px);
-    padding: 1vh 2vw;
-    border-radius: 5vw;
-    border: 1px solid rgba(255,255,255,0.2);
 }
 
 .island-btn {
@@ -334,21 +330,9 @@ body.panel-open .main-content {
     font-family: 'Microsoft JhengHei', sans-serif;
 }
 
-.island-btn:hover { background: var(--accent); color: #000; }
-
-/* 巡航按鈕（在外島區塊內） */
-.cruise-btn-header {
-    display: inline-flex;
-    gap: 0.5vw;
-    margin-left: 1vw;
-}
-
-.cruise-btn-header #cruise-dot {
-    width: 0.8vw;
-    height: 0.8vw;
+.island-btn:hover {
     background: var(--accent);
-    border-radius: 50%;
-    transition: 0.2s;
+    color: #000;
 }
 
 .memory-badge {
@@ -365,7 +349,6 @@ body.panel-open .main-content {
     font-family: 'Microsoft JhengHei', sans-serif;
 }
 
-/* ========== 搜尋框（桌面版保留，手機版隱藏）========== */
 .search-area {
     position: absolute;
     top: 2vh;
@@ -438,7 +421,6 @@ body.panel-open .main-content {
 
 .search-result-item:hover { background: var(--accent); color: #000; }
 
-/* ========== 左下方選單（桌面版-垂直）========== */
 .menu-stack {
     position: absolute;
     bottom: 3vh;
@@ -524,7 +506,6 @@ body.panel-open .main-content {
     object-fit: contain;
 }
 
-/* ========== 收藏包裝器 ========== */
 .favorite-wrapper {
     position: absolute;
     bottom: 3vh;
@@ -644,7 +625,6 @@ body.panel-open .main-content {
     font-family: 'Microsoft JhengHei', sans-serif;
 }
 
-/* ========== 右上控制項 ========== */
 .fixed-controls {
     position: fixed;
     top: 2vh;
@@ -718,7 +698,6 @@ body.panel-open .main-content {
     color: #000;
 }
 
-/* 收藏景點縮圖預覽 */
 .favorite-preview {
     position: fixed;
     bottom: 8vh;
@@ -749,7 +728,6 @@ body.panel-open .main-content {
     text-overflow: ellipsis;
 }
 
-/* 彈窗 */
 #modal-overlay {
     position: fixed;
     top: 0;
@@ -782,7 +760,6 @@ body.panel-open .main-content {
 
 .playing { animation: spin 3s linear infinite; }
 
-/* ========== 深色/淺色主題 ========== */
 :root[data-theme="light"] {
     --main-bg: #f0f0f0;
     --panel-bg: #ffffff;
@@ -802,13 +779,13 @@ body.panel-open .main-content {
 
 :root[data-theme="light"] .menu-trigger,
 :root[data-theme="light"] .cruise-btn,
-:root[data-theme="light"] .island-bar,
 :root[data-theme="light"] .search-box,
 :root[data-theme="light"] .memory-badge,
 :root[data-theme="light"] .fixed-controls button,
 :root[data-theme="light"] #music-toggle,
 :root[data-theme="light"] .favorite-btn,
-:root[data-theme="light"] .theme-toggle {
+:root[data-theme="light"] .theme-toggle,
+:root[data-theme="light"] .top-left-buttons .island-btn {
     background: rgba(255,255,255,0.9);
     color: #1a1d23;
     border-color: rgba(0,0,0,0.2);
@@ -849,7 +826,6 @@ body.panel-open .main-content {
     stroke-width: 2px;
 }
 
-/* 懸浮變亮效果 */
 .vertical-item {
     transition: all 0.2s ease;
     cursor: pointer;
@@ -861,7 +837,6 @@ body.panel-open .main-content {
     transform: scale(1.02);
 }
 
-/* ========== 響應式設計 - 平板 (768px - 1024px) ========== */
 @media (max-width: 1024px) and (min-width: 769px) {
     .thumb-card { width: 22vw; }
     .thumb-card p { font-size: 1.4vw; }
@@ -869,7 +844,6 @@ body.panel-open .main-content {
     .vertical-item img { width: 5vw; height: 5vw; }
 }
 
-/* ========== 桌面版四方向按鈕 ========== */
 .mobile-dpad {
     position: fixed;
     bottom: 3vh;
@@ -924,7 +898,6 @@ body.panel-open .main-content {
     white-space: nowrap;
 }
 
-/* ========== 手機版 ========== */
 @media (max-aspect-ratio: 1/1) {
     body {
         flex-direction: column;
@@ -1096,36 +1069,22 @@ body.panel-open .main-content {
         border-radius: 50%;
     }
     
-    .island-bar {
-        position: fixed;
-        top: 1.5vh;
-        left: 2vw;
-        display: flex;
+    .top-left-buttons {
         flex-direction: column;
-        gap: 1.5vh;
-        background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(12px);
-        padding: 1.5vh 2vw;
-        border-radius: 5vw;
-        border: 1px solid rgba(255,255,255,0.2);
-        z-index: 200;
+        gap: 0.8vh;
+    }
+    
+    .island-row {
+        flex-direction: column;
+        gap: 0.8vh;
     }
     
     .island-btn {
         padding: 1vh 3vw;
         font-size: 3.5vw;
-        white-space: nowrap;
     }
     
-    /* 手機版巡航按鈕 */
-    .cruise-btn-header {
-        margin-left: 0;
-        margin-top: 1vh;
-        width: auto;
-        justify-content: center;
-    }
-    
-    .cruise-btn-header #cruise-dot {
+    #cruise-dot {
         width: 3vw;
         height: 3vw;
     }
@@ -1139,12 +1098,10 @@ body.panel-open .main-content {
         z-index: 200;
     }
     
-    /* 手機版隱藏搜尋框 */
     .search-area {
         display: none;
     }
     
-     /* 手機版四方向按鈕 - 你的正確設定 */
     .mobile-dpad {
         position: fixed;
         top: 1.5vh;
@@ -1194,7 +1151,6 @@ body.panel-open .main-content {
         white-space: nowrap;
     }
 
-    
     .fixed-controls {
         position: fixed;
         top: 1.5vh;
@@ -1298,7 +1254,6 @@ body.panel-open .main-content {
     #modal-title { font-size: 1rem; }
 }
 
-/* ========== 轉乘站金邊閃爍動畫 ========== */
 @keyframes goldPulse {
     0% {
         stroke: #ffd700;
@@ -1327,7 +1282,6 @@ body.panel-open .main-content {
     fill: #ffffff;
 }
 
-/* 重置視角按鈕樣式 */
 .reset-view-btn {
     width: 4.5vw;
     height: 4.5vw;
@@ -1354,12 +1308,24 @@ body.panel-open .main-content {
     }
 }
 
-/* ========== 每月必去月份選單 ========== */
+/* ========== 巡航按鈕藍色樣式 ========== */
+#cruise-btn {
+    border-color: #3b82f6 !important;
+    color: #3b82f6 !important;
+}
+
+#cruise-btn.active {
+    background: #3b82f6 !important;
+    color: #000 !important;
+}
+
+/* ========== 每月必去選單 - 底部對齊按鈕 ========== */
 .monthly-panel {
     position: absolute;
     left: 100%;
     bottom: 0;
     margin-left: 1vw;
+    margin-bottom: 0;
     background: rgba(0,0,0,0.95);
     backdrop-filter: blur(16px);
     border-radius: 1vw;
@@ -1375,6 +1341,7 @@ body.panel-open .main-content {
     display: block;
 }
 
+/* 3x4 網格佈局 */
 .monthly-grid-3x4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1397,7 +1364,6 @@ body.panel-open .main-content {
     color: #000;
 }
 
-/* 美食模式按鈕啟用樣式 */
 .food-mode-active {
     background: var(--accent) !important;
     color: #000 !important;
@@ -1405,7 +1371,12 @@ body.panel-open .main-content {
     box-shadow: 0 0 10px var(--accent);
 }
 
-/* 手機版每月必去 */
+#dropdown-food:empty,
+#dropdown-monthly:empty {
+    display: none;
+}
+
+/* 手機版調整 */
 @media (max-aspect-ratio: 1/1) {
     .monthly-panel {
         left: 100%;
@@ -1422,5 +1393,43 @@ body.panel-open .main-content {
     .monthly-item {
         padding: 1vh 2vw;
         font-size: 3vw;
+    }
+}
+
+/* ========== 可拖曳 dpad ========== */
+.mobile-dpad {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.mobile-dpad:active {
+    cursor: grabbing;
+}
+
+/* ========== 每月必去照片的縣市標籤（左上角） ========== */
+.photo-county-label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 0.8vw;
+    font-weight: bold;
+    color: var(--accent);
+    z-index: 10;
+    pointer-events: none;
+    font-family: 'Microsoft JhengHei', sans-serif;
+}
+
+/* 手機版調整 */
+@media (max-aspect-ratio: 1/1) {
+    .photo-county-label {
+        font-size: 2.5vw;
+        padding: 2px 6px;
+        top: 4px;
+        left: 4px;
     }
 }
