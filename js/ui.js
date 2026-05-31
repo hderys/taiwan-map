@@ -2,12 +2,12 @@
 =================================================================
 檔案名稱: ui.js
 功    用: 介面互動邏輯控制
-版本: 3.3 (完整修改版)
+版本: 3.8 (修正：每月必去照片顯示縣市標籤 + 地圖高亮)
 =================================================================
 */
 
 // ========== 全域變數 ==========
-let isCruise = false;  // 預設不巡航
+let isCruise = false;
 let cruiseInt, resumeTimeout, curIdx = 0;
 let showHk = false, showDom = false;
 let showTraLines = false, showHsrLines = false;
@@ -22,10 +22,13 @@ let isFoodMode = false;
 // 每月必去面板開關
 let isMonthlyPanelOpen = false;
 
+// 全國照片淡亮燈定時器
+let nationalHighlightTimeout = null;
+
 // ========== 自動判斷環境（本機 vs 線上）==========
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const photoBasePath = isLocal ? '../照片備份/web_photos_small/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
-const largePhotoBasePath = isLocal ? '../照片備份/web_photos_large/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
+const photoBasePath = isLocal ? 'web_photos_small/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/web_photos_small/';
+const largePhotoBasePath = isLocal ? 'web_photos_large/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/web_photos_large/';
 
 const bgm = document.getElementById("bgm-audio");
 
@@ -131,8 +134,6 @@ function openFavoriteSpot(index) {
             
             const cnameEl = document.getElementById("cname");
             if (cnameEl) cnameEl.innerText = spot.county;
-            
-            // 移除 Toast，不顯示
         }
     }
 }
@@ -142,7 +143,12 @@ function toggleFavoritePanel() {
     if (panel) panel.classList.toggle('show');
 }
 
+// Toast：只保留收藏相關，移除其他所有提示
 function showToast(message) {
+    if (!message.includes('收藏') && !message.includes('移除')) {
+        return;
+    }
+    
     let toast = document.getElementById('toast-message');
     if (!toast) {
         toast = document.createElement('div');
@@ -213,26 +219,8 @@ function buildDropdowns() {
         <div class="vertical-item" style="background:#66ccff;" onclick="toggleAirports('dom')">🛩️ 國內線機場</div>
         <div class="vertical-item" style="background:#0033aa;" onclick="toggleTra()">🚂 臺鐵 (TRA)</div>
         <div class="vertical-item" style="background:#ffaa33;" onclick="toggleHsr()">🚄 高鐵 (THSR)</div>
-        <div class="vertical-item" style="background:#8b5cf6; color:#fff;" onclick="toggleMrt()">🚇 捷運 (MRT)</div>
+        <div class="vertical-item" style="background:#8b5cf6; color:#fff;" onclick="window.toggleMrt ? window.toggleMrt() : toggleMrt()">🚇 捷運 (MRT)</div>
     `;
-
-    const foodDropdown = document.getElementById('dropdown-food');
-    if (foodDropdown) {
-        foodDropdown.innerHTML = `
-            <div class="vertical-item" style="background:#ff6600; color:#fff; justify-content:center;" onclick="toggleFoodMode()">
-                <span>🍜 美食模式</span>
-            </div>
-        `;
-    }
-
-    const monthlyDropdown = document.getElementById('dropdown-monthly');
-    if (monthlyDropdown) {
-        monthlyDropdown.innerHTML = `
-            <div class="vertical-item" style="background:#9933ff; color:#fff; justify-content:center;" onclick="toggleMonthlyPanel()">
-                <span>📅 選擇月份</span>
-            </div>
-        `;
-    }
 }
 
 // ========== 美食模式 ==========
@@ -244,7 +232,6 @@ function toggleFoodMode() {
         foodBtn.innerHTML = "🍜 取消美食模式";
         foodBtn.classList.add("food-mode-active");
         
-        // 關閉月份選單（互斥）
         const monthlyPanel = document.getElementById("monthly-panel");
         if (monthlyPanel) monthlyPanel.classList.remove("show");
         isMonthlyPanelOpen = false;
@@ -253,7 +240,6 @@ function toggleFoodMode() {
         foodBtn.classList.remove("food-mode-active");
     }
     
-    // 重新整理目前縣市的照片
     const cnameEl = document.getElementById("cname");
     if (cnameEl && cnameEl.innerText !== "等待探索") {
         renderThumbs(cnameEl.innerText);
@@ -274,8 +260,12 @@ function toggleMonthlyPanel() {
 }
 
 function filterByMonth(month) {
-    // 不關閉選單，只顯示該月份照片
     showMonthPhotos(month);
+    const panel = document.getElementById("monthly-panel");
+    if (panel) {
+        panel.classList.remove("show");
+        isMonthlyPanelOpen = false;
+    }
 }
 
 function showMonthPhotos(month) {
@@ -296,7 +286,7 @@ function showMonthPhotos(month) {
     }
     
     if (allPhotos.length === 0) {
-        return; // 移除 Toast
+        return;
     }
     
     displayMonthPhotos(allPhotos, monthStr);
@@ -313,8 +303,8 @@ function displayMonthPhotos(photos, monthStr) {
         const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.index);
         const isNational = p.tags && p.tags.includes("全國");
         return `
-            <div class="thumb-card" style="position: relative;"
-                 onmouseover="previewCountyWithNational('${item.county}', ${isNational}, '${p.s.replace(/'/g, "\\'")}')"
+            <div class="thumb-card month-photo-card" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
                  onmouseleave="clearPreview()">
                 <img src="${photoBasePath}${p.i}.webp" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModalFromMonth('${item.county}', ${item.index})">
                 <div class="favorite-star" 
@@ -325,27 +315,10 @@ function displayMonthPhotos(photos, monthStr) {
                     ${isFavorite ? '⭐' : '☆'}
                 </div>
                 <p>${p.s}</p>
+                <div class="photo-county-label">📍 ${item.county}</div>
             </div>
         `;
     }).join("");
-}
-
-function previewCountyWithNational(countyName, isNational, title) {
-    if (isNational) {
-        // 全國性：所有縣市淡亮燈
-        d3.selectAll(".county").classed("reg-national", true);
-    } else {
-        // 一般：只亮該縣市
-        d3.selectAll(".county").classed("reg-national", false);
-        d3.selectAll(".county").each(function() {
-            const currentClass = d3.select(this).attr("class");
-            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
-                d3.select(this).attr("class", "county");
-            }
-        });
-        d3.select(`#path-${countyName}`).classed("reg-system", true);
-        d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
-    }
 }
 
 function openModalFromMonth(county, index) {
@@ -583,6 +556,26 @@ function previewCounty(countyName) {
         d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
     } else if (countyName === "澎湖縣") {
         d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
+    }
+}
+
+function previewCountyWithNational(countyName, isNational) {
+    if (nationalHighlightTimeout) {
+        clearTimeout(nationalHighlightTimeout);
+    }
+    
+    if (isNational) {
+        d3.selectAll(".county").classed("reg-national", true);
+    } else {
+        d3.selectAll(".county").classed("reg-national", false);
+        d3.selectAll(".county").each(function() {
+            const currentClass = d3.select(this).attr("class");
+            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
+                d3.select(this).attr("class", "county");
+            }
+        });
+        d3.select(`#path-${countyName}`).classed("reg-system", true);
+        d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
     }
 }
 
@@ -952,29 +945,26 @@ function renderThumbs(name) {
     if (!grid) return;
     let photos = photoData[name] || [];
     
-    // 美食模式篩選
     if (isFoodMode) {
         photos = photos.filter(p => p.tags && p.tags.includes("美食"));
     }
     
-    // 設定標題
     if (cname) {
-        if (isFoodMode) {
-            cname.innerHTML = `${name}<br><span style="color: var(--accent);">🍜 美食模式中</span>`;
+        const desc = window.countyDescriptions ? (window.countyDescriptions[name] || "") : "";
+        if (desc) {
+            cname.innerHTML = `${name}<br><span style="color: var(--accent);">${desc}</span>`;
         } else {
-            const desc = window.countyDescriptions ? (window.countyDescriptions[name] || "") : "";
-            if (desc) {
-                cname.innerHTML = `${name}<br><span style="color: var(--accent);">${desc}</span>`;
-            } else {
-                cname.innerText = name;
-            }
+            cname.innerText = name;
         }
     }
     
     grid.innerHTML = photos.map((p, i) => {
         const isFavorite = favoriteSpots.some(spot => spot.county === name && spot.photoIndex === i);
+        const isNational = p.tags && p.tags.includes("全國");
         return `
-            <div class="thumb-card" style="position: relative;">
+            <div class="thumb-card" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${name}', ${isNational})"
+                 onmouseleave="clearPreview()">
                 <img src="${photoBasePath}${p.i}.webp" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${name}', ${i})">
                 <div class="favorite-star" 
                     data-county="${name}" 
@@ -1300,6 +1290,73 @@ if (panel && handleText) {
     } else {
         handleText.innerHTML = "📷 展開照片";
     }
+}
+
+// ========== 可拖曳 dpad 功能 ==========
+function makeDraggable(element) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    let isDragging = false;
+    
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches ? e.touches[0].clientX : 0);
+        const clientY = e.clientY !== undefined ? e.clientY : (e.touches ? e.touches[0].clientY : 0);
+        
+        pos3 = clientX;
+        pos4 = clientY;
+        isDragging = true;
+        
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+        document.ontouchend = closeDragElement;
+        document.ontouchmove = elementDrag;
+    }
+    
+    function elementDrag(e) {
+        if (!isDragging) return;
+        e = e || window.event;
+        e.preventDefault();
+        
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches ? e.touches[0].clientX : 0);
+        const clientY = e.clientY !== undefined ? e.clientY : (e.touches ? e.touches[0].clientY : 0);
+        
+        pos1 = pos3 - clientX;
+        pos2 = pos4 - clientY;
+        pos3 = clientX;
+        pos4 = clientY;
+        
+        let newTop = element.offsetTop - pos2;
+        let newLeft = element.offsetLeft - pos1;
+        
+        const maxLeft = window.innerWidth - element.offsetWidth;
+        const maxTop = window.innerHeight - element.offsetHeight;
+        
+        newLeft = Math.min(Math.max(0, newLeft), maxLeft);
+        newTop = Math.min(Math.max(0, newTop), maxTop);
+        
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+        element.style.bottom = "auto";
+        element.style.right = "auto";
+    }
+    
+    function closeDragElement() {
+        isDragging = false;
+        document.onmouseup = null;
+        document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
+    }
+    
+    element.addEventListener('mousedown', dragMouseDown);
+    element.addEventListener('touchstart', dragMouseDown, { passive: false });
+}
+
+const dpad = document.querySelector('.mobile-dpad');
+if (dpad) {
+    makeDraggable(dpad);
 }
 
 // 預設不啟動巡航
