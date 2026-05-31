@@ -36,19 +36,22 @@
     </div>
 </div>
 
-<!-- 左上角外島區塊 + 巡航按鈕 -->
-<div class="island-bar">
-    <div id="btn-Kinmen" class="island-btn" onclick="clickIsland('金門縣', this)" onmouseenter="hoverIsland('金門縣')" onmouseleave="clearIslandHover()">🏝️ 金門縣</div>
-    <div id="btn-Lienchiang" class="island-btn" onclick="clickIsland('連江縣', this)" onmouseenter="hoverIsland('連江縣')" onmouseleave="clearIslandHover()">🏝️ 連江縣(馬祖)</div>
-    <div id="btn-Penghu" class="island-btn" onclick="clickIsland('澎湖縣', this)" onmouseenter="hoverIsland('澎湖縣')" onmouseleave="clearIslandHover()">🏝️ 澎湖縣</div>
-    <!-- 巡航按鈕 -->
-    <div id="cruise-btn" class="island-btn cruise-btn-header" onclick="toggleCruiseMaster()">
-        <div id="cruise-dot"></div>
-        <span id="cruise-text">開啟巡航模式</span>
+<!-- 左上角按鈕群組 -->
+<div class="top-left-buttons">
+    <div class="island-row">
+        <div id="btn-Kinmen" class="island-btn" onclick="clickIsland('金門縣', this)" onmouseenter="hoverIsland('金門縣')" onmouseleave="clearIslandHover()">🏝️ 金門縣</div>
+        <div id="btn-Lienchiang" class="island-btn" onclick="clickIsland('連江縣', this)" onmouseenter="hoverIsland('連江縣')" onmouseleave="clearIslandHover()">🏝️ 連江縣(馬祖)</div>
+        <div id="btn-Penghu" class="island-btn" onclick="clickIsland('澎湖縣', this)" onmouseenter="hoverIsland('澎湖縣')" onmouseleave="clearIslandHover()">🏝️ 澎湖縣</div>
+    </div>
+    <div class="island-row">
+        <div id="cruise-btn" class="island-btn" onclick="toggleCruiseMaster()">
+            <div id="cruise-dot"></div>
+            <span id="cruise-text">開啟巡航模式</span>
+        </div>
     </div>
 </div>
 
-<!-- 手機版四方向按鈕（取代搜尋框） -->
+<!-- 手機版四方向按鈕 -->
 <div class="mobile-dpad">
     <div class="dpad-up">
         <button class="dpad-btn" id="dpad-up" onclick="moveDirection('N')">⬆️</button>
@@ -84,7 +87,6 @@
     </div>
     <div class="menu-item" id="menu-food">
         <div class="menu-trigger" id="food-mode-trigger" onclick="toggleFoodMode()">🍜 美食推介</div>
-        <div class="menu-dropdown-vertical" id="dropdown-food"></div>
     </div>
     <div class="menu-item" id="menu-monthly">
         <div class="menu-trigger" id="monthly-mode-trigger" onclick="toggleMonthlyPanel()">📅 每月必去</div>
@@ -107,7 +109,7 @@
     </div>
 </div>
 
-<!-- 收藏按鈕 + 面板（巡航按鈕已移除外島區塊，此處刪除原 cruise-area） -->
+<!-- 收藏按鈕 + 面板 -->
 <div class="favorite-wrapper">
     <div class="favorite-btn" onclick="toggleFavoritePanel()">
         ⭐ 我的收藏
