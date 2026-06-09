@@ -289,12 +289,43 @@ body.panel-open .main-content {
 }
 
 .panel-title {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 20;
     padding: 1.5vw;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+}
+
+.nationwide-btn {
+    background: rgba(0,0,0,0.7);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 20px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    z-index: 21;
+    position: relative;
+}
+
+/* 退出分類模式按鈕（與全國按鈕同位置） */
+.exit-category-btn {
+    border-color: #ff4444 !important;
+    color: #ff4444 !important;
+}
+.exit-category-btn:hover {
+    background: #ff4444 !important;
+    color: #fff !important;
+}
+
+#cname {
+    flex: 1;
+    text-align: center;
     font-size: 1.5vw;
     font-weight: bold;
-    background: rgba(0,0,0,0.3);
 }
 
 .top-left-buttons {
@@ -858,6 +889,13 @@ body.panel-open .main-content {
     backdrop-filter: blur(4px);
     padding: 8px 12px;
     border-radius: 20px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.mobile-dpad:active {
+    cursor: grabbing;
 }
 
 .dpad-up, .dpad-down {
@@ -884,6 +922,7 @@ body.panel-open .main-content {
     justify-content: center;
     cursor: pointer;
     transition: 0.2s;
+    pointer-events: auto;
 }
 
 .dpad-btn:hover {
@@ -896,6 +935,7 @@ body.panel-open .main-content {
     color: var(--accent);
     font-weight: bold;
     white-space: nowrap;
+    pointer-events: none;
 }
 
 @media (max-aspect-ratio: 1/1) {
@@ -993,8 +1033,25 @@ body.panel-open .main-content {
         font-size: 4vw;
     }
     
-    .photo-panel .panel-title {
-        display: none;
+    .panel-title {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 1.5vw;
+    }
+    #cname {
+        font-size: 3vw;
+        order: 1;
+    }
+    .nationwide-btn,
+    .exit-category-btn {
+        align-self: flex-start;
+        font-size: 2.5vw;
+        padding: 2px 8px;
+    }
+    .exit-category-btn {
+        order: 2;
+        margin-top: 4px;
     }
     
     #thumb-grid {
@@ -1117,40 +1174,37 @@ body.panel-open .main-content {
         backdrop-filter: none;
         padding: 0;
         border-radius: 12px;
+        transform: scale(1.3);
+        transform-origin: left top;
     }
-
+    
     .dpad-up, .dpad-down {
         display: flex;
         justify-content: center;
     }
-
+    
     .dpad-middle {
         display: flex;
         align-items: center;
         gap: 3px;
     }
-
+    
     .dpad-btn {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 20px !important;
         background: rgba(0,0,0,0.5);
         border: 0.8px solid var(--accent);
         color: var(--accent);
-        font-size: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
     }
-
+    
     .dpad-text {
-        font-size: 8px;
+        font-size: 10px !important;
         color: var(--accent);
         font-weight: bold;
         white-space: nowrap;
     }
-
+    
     .fixed-controls {
         position: fixed;
         top: 1.5vh;
@@ -1319,7 +1373,7 @@ body.panel-open .main-content {
     color: #000 !important;
 }
 
-/* ========== 每月必去選單 - 底部對齊按鈕 ========== */
+/* ========== 每月必去選單 ========== */
 .monthly-panel {
     position: absolute;
     left: 100%;
@@ -1341,7 +1395,6 @@ body.panel-open .main-content {
     display: block;
 }
 
-/* 3x4 網格佈局 */
 .monthly-grid-3x4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1364,19 +1417,6 @@ body.panel-open .main-content {
     color: #000;
 }
 
-.food-mode-active {
-    background: var(--accent) !important;
-    color: #000 !important;
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 10px var(--accent);
-}
-
-#dropdown-food:empty,
-#dropdown-monthly:empty {
-    display: none;
-}
-
-/* 手機版調整 */
 @media (max-aspect-ratio: 1/1) {
     .monthly-panel {
         left: 100%;
@@ -1385,29 +1425,16 @@ body.panel-open .main-content {
         min-width: 40vw;
         padding: 2vw;
     }
-    
     .monthly-grid-3x4 {
         gap: 1vw;
     }
-    
     .monthly-item {
         padding: 1vh 2vw;
         font-size: 3vw;
     }
 }
 
-/* ========== 可拖曳 dpad ========== */
-.mobile-dpad {
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
-}
-
-.mobile-dpad:active {
-    cursor: grabbing;
-}
-
-/* ========== 每月必去照片的縣市標籤（左上角） ========== */
+/* ========== 每月必去照片縣市標籤 ========== */
 .photo-county-label {
     position: absolute;
     top: 8px;
@@ -1423,13 +1450,206 @@ body.panel-open .main-content {
     pointer-events: none;
     font-family: 'Microsoft JhengHei', sans-serif;
 }
-
-/* 手機版調整 */
 @media (max-aspect-ratio: 1/1) {
     .photo-county-label {
         font-size: 2.5vw;
         padding: 2px 6px;
         top: 4px;
         left: 4px;
+    }
+}
+
+/* ========== 引導提示樣式 ========== */
+.guide-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Microsoft JhengHei', sans-serif;
+}
+
+.guide-card {
+    background: var(--panel-bg);
+    border-radius: 32px;
+    padding: 32px 40px;
+    max-width: 480px;
+    width: 85%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    animation: guideFadeIn 0.3s ease;
+}
+
+@keyframes guideFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.guide-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.guide-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent);
+    margin-bottom: 24px;
+}
+
+.guide-list {
+    text-align: left;
+    margin-bottom: 28px;
+}
+
+.guide-item {
+    padding: 10px 0;
+    font-size: 16px;
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.guide-item:last-child { border-bottom: none; }
+
+.guide-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 12px 28px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-family: 'Microsoft JhengHei', sans-serif;
+}
+.guide-btn:hover {
+    transform: scale(1.02);
+    background: #ffdd55;
+}
+@media (max-aspect-ratio: 1/1) {
+    .guide-card { padding: 24px 28px; max-width: 90%; }
+    .guide-title { font-size: 20px; }
+    .guide-item { font-size: 14px; padding: 8px 0; }
+    .guide-btn { padding: 10px 24px; font-size: 16px; }
+}
+:root[data-theme="light"] .guide-overlay {
+    background: rgba(255,255,255,0.95);
+}
+:root[data-theme="light"] .guide-card {
+    background: #fff;
+    border-color: rgba(0,0,0,0.1);
+}
+:root[data-theme="light"] .guide-item {
+    color: #333;
+    border-bottom-color: rgba(0,0,0,0.1);
+}
+
+/* ========== 分類圖示 ========== */
+.category-icons {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    padding: 2px 6px;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    pointer-events: none;
+    z-index: 10;
+}
+@media (max-aspect-ratio: 1/1) {
+    .category-icons {
+        font-size: 1.2rem;
+        bottom: 4px;
+        left: 4px;
+        padding: 2px 4px;
+    }
+}
+
+/* ========== 星等 ========== */
+.rating-stars {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #ffcc00;
+    letter-spacing: 2px;
+    pointer-events: none;
+    z-index: 10;
+}
+@media (max-aspect-ratio: 1/1) {
+    .rating-stars {
+        font-size: 1rem;
+        bottom: 4px;
+        right: 4px;
+        padding: 2px 4px;
+    }
+}
+
+/* ========== 分類探索面板 ========== */
+.category-panel {
+    position: absolute;
+    left: 100%;
+    bottom: 0;
+    margin-left: 1vw;
+    background: rgba(0,0,0,0.95);
+    backdrop-filter: blur(16px);
+    border-radius: 1vw;
+    padding: 0.8vw;
+    min-width: 20vw;
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 4px 4px 20px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 170;
+}
+.category-panel.show { display: block; }
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5vw;
+}
+.category-item {
+    padding: 0.5vw 0.8vw;
+    text-align: center;
+    cursor: pointer;
+    font-size: 1vw;
+    font-weight: bold;
+    color: white;
+    border-radius: 0.5vw;
+    transition: 0.2s;
+    white-space: nowrap;
+}
+.category-item:hover {
+    background: var(--accent);
+    color: #000;
+}
+@media (max-aspect-ratio: 1/1) {
+    .category-panel {
+        left: 100%;
+        bottom: 0;
+        margin-left: 2vw;
+        min-width: 40vw;
+        padding: 2vw;
+    }
+    .category-grid { gap: 1vw; }
+    .category-item {
+        padding: 1vh 2vw;
+        font-size: 3vw;
     }
 }
