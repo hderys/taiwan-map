@@ -2,7 +2,7 @@
 =================================================================
 檔案名稱: ui.js
 功    用: 介面互動邏輯控制
-版本: 5.0 (修正：開啟網頁顯示照片、總數正確顯示、美食模式正常)
+版本: 8.1 (最後修正：退出按鈕改為獨立按鈕，置於標題欄左側)
 =================================================================
 */
 
@@ -16,8 +16,10 @@ let activeMenu = null;
 let hoverTimeout = null;
 let allCountiesList = [];
 
-// 美食模式開關
-let isFoodMode = false;
+// 模式開關（僅分類探索模式）
+let isCategoryMode = false;
+let currentCategory = null;
+let currentCategoryKeywords = [];
 
 // 每月必去面板開關
 let isMonthlyPanelOpen = false;
@@ -25,39 +27,101 @@ let isMonthlyPanelOpen = false;
 // 全國照片淡亮燈定時器
 let nationalHighlightTimeout = null;
 
+// 長按拖曳專用計時器
+let longPressTimer = null;
+
 // ========== 自動判斷環境（本機 vs 線上）==========
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-// 本機：使用本地資料夾；線上：直接從 CDN 根目錄取（無資料夾）
 const photoBasePath = isLocal ? 'web_photos_small/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
 const largePhotoBasePath = isLocal ? 'web_photos_large/' : 'https://cdn.jsdelivr.net/gh/hderys/taiwan-photos/';
 
-// 根據環境取得正確的照片網址
 function getSmallPhotoUrl(photoId) {
-    if (isLocal) {
-        return `${photoBasePath}${photoId}.webp`;
-    } else {
-        return `${photoBasePath}small${photoId}.webp`;
-    }
+    if (isLocal) return `${photoBasePath}${photoId}.webp`;
+    else return `${photoBasePath}small${photoId}.webp`;
 }
-
 function getLargePhotoUrl(photoId) {
-    if (isLocal) {
-        return `${largePhotoBasePath}${photoId}.webp`;
-    } else {
-        return `${largePhotoBasePath}large${photoId}.webp`;
-    }
+    if (isLocal) return `${largePhotoBasePath}${photoId}.webp`;
+    else return `${largePhotoBasePath}large${photoId}.webp`;
 }
 
 const bgm = document.getElementById("bgm-audio");
 
-// ========== 更新右上角照片總數 ==========
+// ========== 輔助函數 ==========
 function updateTotalCount() {
     const totalSpan = document.getElementById("total-count");
     if (totalSpan) {
         const total = Object.values(photoData).flat().length;
         totalSpan.innerText = total;
     }
+}
+
+// 為所有照片補上預設評級（若無 rating 則設為 3）
+function ensureRating() {
+    for (const county in photoData) {
+        photoData[county].forEach(photo => {
+            if (photo.rating === undefined) photo.rating = 3;
+        });
+    }
+}
+
+// 根據 tags 獲取分類圖示（依優先級）
+function getCategoryIcon(tags) {
+    const priority = [
+        { name: '吃貨必去', icon: '🍜', keywords: ['美食', '伴手禮'] },
+        { name: '打卡秘境', icon: '📸', keywords: ['彩繪', '燈塔', '特殊地景', '天空步道', '教堂', '彩虹'] },
+        { name: '玩樂放鬆', icon: '🎢', keywords: ['玩樂', '遊樂園', '水上活動', '休閒'] },
+        { name: '特色體驗', icon: '✨', keywords: ['DIY', '溫泉', '賞螢', '熱氣球', '放天燈'] },
+        { name: '人文古蹟', icon: '🏛️', keywords: ['文化', '老街', '廟宇', '書院', '燈會', '藝術村'] },
+        { name: '自然生態', icon: '🌿', keywords: ['生態', '山', '海', '湖', '森林', '溼地', '瀑布'] }
+    ];
+    for (let p of priority) {
+        if (p.keywords.some(kw => tags.includes(kw))) {
+            return p.icon;
+        }
+    }
+    return null;
+}
+
+// 根據 rating 生成星等字串
+function getRatingStars(rating) {
+    if (!rating || rating < 3) return '';
+    const fullStars = Math.floor(rating);
+    return '★'.repeat(fullStars);
+}
+
+// 排序：依評級降序（同級維持原順序）
+function sortByRating(photos) {
+    return photos.sort((a, b) => (b.rating || 3) - (a.rating || 3));
+}
+
+// ========== 切換分類模式 UI（顯示/隱藏全國按鈕與退出按鈕） ==========
+function setCategoryModeUI(isCategory) {
+    const nationwideBtn = document.getElementById("nationwide-btn");
+    const exitBtn = document.getElementById("exit-category-btn");
+    if (!nationwideBtn || !exitBtn) return;
+    if (isCategory) {
+        nationwideBtn.style.display = "none";
+        exitBtn.style.display = "inline-block";
+    } else {
+        nationwideBtn.style.display = "inline-block";
+        exitBtn.style.display = "none";
+    }
+}
+
+// ========== 退出分類模式 ==========
+function exitCategoryMode() {
+    if (!isCategoryMode) return;
+    isCategoryMode = false;
+    currentCategory = null;
+    currentCategoryKeywords = [];
+    setCategoryModeUI(false);
+    const activeCounty = d3.select(".county.active").attr("id")?.replace('path-', '');
+    if (activeCounty && photoData[activeCounty]) {
+        selectCounty(activeCounty, d3.select(`#path-${activeCounty}`));
+    } else {
+        selectCounty("臺北市", d3.select("#path-臺北市"));
+    }
+    updateTotalCount();
 }
 
 // ========== 引導提示 ==========
@@ -70,15 +134,13 @@ function showGuide() {
         }, 500);
     }
 }
-
 function closeGuide() {
     const overlay = document.getElementById('guide-overlay');
     if (overlay) overlay.style.display = 'none';
     localStorage.setItem('taiwan_guide_seen', 'true');
-    
     const musicBtn = document.getElementById("music-toggle");
     if (bgm && bgm.paused) {
-        bgm.play().catch(e => console.log('音樂自動播放被阻止，需要用戶手動點擊'));
+        bgm.play().catch(e => console.log('音樂自動播放被阻止'));
         if (musicBtn) {
             musicBtn.innerText = musicConfig.playIcon;
             musicBtn.classList.add("playing");
@@ -88,18 +150,14 @@ function closeGuide() {
 
 // ========== 收藏景點 ==========
 let favoriteSpots = [];
-
 try {
     const saved = localStorage.getItem('taiwan_favorite_spots');
-    if (saved) {
-        favoriteSpots = JSON.parse(saved);
-    }
+    if (saved) favoriteSpots = JSON.parse(saved);
 } catch(e) { favoriteSpots = []; }
 
 function updateFavoriteUI() {
     const countSpan = document.getElementById('favorite-count');
     if (countSpan) countSpan.innerText = favoriteSpots.length;
-    
     const listContainer = document.getElementById('favorite-list');
     if (listContainer) {
         if (favoriteSpots.length === 0) {
@@ -116,7 +174,6 @@ function updateFavoriteUI() {
             `).join('');
         }
     }
-    
     document.querySelectorAll('.thumb-card').forEach(card => {
         const star = card.querySelector('.favorite-star');
         if (star) {
@@ -130,11 +187,7 @@ function updateFavoriteUI() {
 
 function addFavoriteSpot(countyName, photoIndex, photoTitle) {
     if (!favoriteSpots.some(spot => spot.county === countyName && spot.photoIndex === photoIndex)) {
-        favoriteSpots.push({
-            county: countyName,
-            photoIndex: photoIndex,
-            title: photoTitle
-        });
+        favoriteSpots.push({ county: countyName, photoIndex: photoIndex, title: photoTitle });
         localStorage.setItem('taiwan_favorite_spots', JSON.stringify(favoriteSpots));
         updateFavoriteUI();
         showToast(`✅ 已收藏「${photoTitle}」`);
@@ -156,36 +209,22 @@ function openFavoriteSpot(index) {
     if (spot) {
         const panel = document.getElementById('favorite-panel');
         if (panel) panel.classList.remove('show');
-        
         const previewDiv = document.getElementById('favorite-preview');
         const previewImg = document.getElementById('preview-img');
         const previewTitle = document.getElementById('preview-title');
-        
         if (previewDiv && previewImg && previewTitle) {
             const photo = photoData[spot.county][spot.photoIndex];
-            if (photo) {
-                previewImg.src = getSmallPhotoUrl(photo.i);
-            } else {
-                previewImg.src = getSmallPhotoUrl(`${spot.photoIndex + 1}`);
-            }
+            previewImg.src = getSmallPhotoUrl(photo ? photo.i : `${spot.photoIndex + 1}`);
             previewTitle.innerText = spot.title;
             previewDiv.style.display = 'block';
-            
-            setTimeout(() => {
-                previewDiv.style.display = 'none';
-            }, 5000);
+            setTimeout(() => { previewDiv.style.display = 'none'; }, 5000);
         }
-        
         const countyPath = d3.select(`#path-${spot.county}`);
         if (countyPath.node()) {
             clearAllHighlights();
             countyPath.classed("active", true);
             d3.selectAll(`.label-${spot.county}`).classed("label-visible", true);
-            
-            if(subIslands[spot.county]) {
-                subIslands[spot.county].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
-            }
-            
+            if(subIslands[spot.county]) subIslands[spot.county].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
             const cnameEl = document.getElementById("cname");
             if (cnameEl) cnameEl.innerText = spot.county;
         }
@@ -197,39 +236,18 @@ function toggleFavoritePanel() {
     if (panel) panel.classList.toggle('show');
 }
 
-// Toast：只保留收藏相關
 function showToast(message) {
-    if (!message.includes('收藏') && !message.includes('移除')) {
-        return;
-    }
-    
+    if (!message.includes('收藏') && !message.includes('移除')) return;
     let toast = document.getElementById('toast-message');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'toast-message';
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.9);
-            color: var(--accent);
-            padding: 10px 20px;
-            border-radius: 40px;
-            font-size: 14px;
-            z-index: 1000;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            white-space: nowrap;
-            font-weight: bold;
-        `;
+        toast.style.cssText = `position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: var(--accent); padding: 10px 20px; border-radius: 40px; font-size: 14px; z-index: 1000; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; font-weight: bold;`;
         document.body.appendChild(toast);
     }
     toast.textContent = message;
     toast.style.opacity = '1';
-    setTimeout(() => {
-        toast.style.opacity = '0';
-    }, 2000);
+    setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
 
 // ========== 選單控制 ==========
@@ -266,7 +284,6 @@ function buildDropdowns() {
             <span>🏞️ 縣 (13縣)</span>
         </div>
     `;
-    
     const transportDropdown = document.getElementById('dropdown-transport');
     transportDropdown.innerHTML = `
         <div class="vertical-item" style="background:#3399ff;" onclick="toggleAirports('hk')">✈️ 赴港航班機場</div>
@@ -277,189 +294,16 @@ function buildDropdowns() {
     `;
 }
 
-// ========== 美食模式 ==========
-function toggleFoodMode() {
-    isFoodMode = !isFoodMode;
-    const foodBtn = document.querySelector('#menu-food .menu-trigger');
-    
-    if (isFoodMode) {
-        foodBtn.innerHTML = "取消美食模式";
-        foodBtn.classList.add("food-mode-active");
-        
-        const monthlyPanel = document.getElementById("monthly-panel");
-        if (monthlyPanel) monthlyPanel.classList.remove("show");
-        isMonthlyPanelOpen = false;
-        
-        showAllFoodPhotos();
-    } else {
-        foodBtn.innerHTML = "🍜 美食推介";
-        foodBtn.classList.remove("food-mode-active");
-        
-        // 恢復顯示總照片數
-        updateTotalCount();
-        
-        const cnameEl = document.getElementById("cname");
-        if (cnameEl && cnameEl.innerText !== "等待探索" && cnameEl.innerText !== "全台美食") {
-            renderThumbs(cnameEl.innerText);
-        } else {
-            renderThumbs("臺北市");
-            const countyPath = d3.select(`#path-臺北市`);
-            if (countyPath.node()) {
-                clearAllHighlights();
-                countyPath.classed("active", true);
-                d3.selectAll(`.label-臺北市`).classed("label-visible", true);
-            }
-        }
-    }
-}
-
-function showAllFoodPhotos() {
-    const allFoodPhotos = [];
-    
-    for (const [county, photos] of Object.entries(photoData)) {
-        for (let i = 0; i < photos.length; i++) {
-            const photo = photos[i];
-            if (photo.tags && photo.tags.includes("美食")) {
-                allFoodPhotos.push({
-                    county: county,
-                    index: i,
-                    photo: photo
-                });
-            }
-        }
-    }
-    
-    const grid = document.getElementById("thumb-grid");
-    const cname = document.getElementById("cname");
-    
-    cname.innerHTML = `🍜 全台美食<br><span style="font-size: 0.6em; color: var(--accent); font-weight: normal;">共 ${allFoodPhotos.length} 個美食景點</span>`;
-    
-    // 更新右上角顯示為美食數量
-    const totalSpan = document.getElementById("total-count");
-    if (totalSpan) totalSpan.innerText = `🍜 ${allFoodPhotos.length}`;
-    
-    grid.innerHTML = allFoodPhotos.map(item => {
-        const p = item.photo;
-        const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.index);
-        const isNational = p.tags && p.tags.includes("全國");
-        return `
-            <div class="thumb-card month-photo-card" style="position: relative;"
-                 onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
-                 onmouseleave="clearPreview()">
-                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${item.county}', ${item.index})">
-                <div class="favorite-star" 
-                    data-county="${item.county}" 
-                    data-idx="${item.index}"
-                    onclick="event.stopPropagation(); addFavoriteSpot('${item.county}', ${item.index}, '${p.s.replace(/'/g, "\\'")}')" 
-                    style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">
-                    ${isFavorite ? '⭐' : '☆'}
-                </div>
-                <p>${p.s}</p>
-                <div class="photo-county-label">📍 ${item.county}</div>
-            </div>
-        `;
-    }).join("");
-}
-
-// ========== 每月必去 ==========
-function toggleMonthlyPanel() {
-    const panel = document.getElementById("monthly-panel");
-    if (!panel) return;
-    
-    isMonthlyPanelOpen = !isMonthlyPanelOpen;
-    if (isMonthlyPanelOpen) {
-        panel.classList.add("show");
-    } else {
-        panel.classList.remove("show");
-    }
-}
-
-function filterByMonth(month) {
-    if (isFoodMode) {
-        isFoodMode = false;
-        const foodBtn = document.querySelector('#menu-food .menu-trigger');
-        if (foodBtn) {
-            foodBtn.innerHTML = "🍜 美食推介";
-            foodBtn.classList.remove("food-mode-active");
-        }
-        updateTotalCount();
-    }
-    
-    showMonthPhotos(month);
-    
-    const panel = document.getElementById("monthly-panel");
-    if (panel) {
-        panel.classList.remove("show");
-        isMonthlyPanelOpen = false;
-    }
-}
-
-function showMonthPhotos(month) {
-    const monthStr = `${month}月`;
-    const allPhotos = [];
-    
-    for (const [county, photos] of Object.entries(photoData)) {
-        for (let i = 0; i < photos.length; i++) {
-            const photo = photos[i];
-            if (photo.tags && photo.tags.includes(monthStr)) {
-                allPhotos.push({
-                    county: county,
-                    index: i,
-                    photo: photo
-                });
-            }
-        }
-    }
-    
-    if (allPhotos.length === 0) {
-        return;
-    }
-    
-    displayMonthPhotos(allPhotos, monthStr);
-}
-
-function displayMonthPhotos(photos, monthStr) {
-    const grid = document.getElementById("thumb-grid");
-    const cname = document.getElementById("cname");
-    
-    cname.innerHTML = `📅 ${monthStr} 推薦景點<br><span style="font-size: 0.6em; color: var(--accent); font-weight: normal;">共 ${photos.length} 個景點</span>`;
-    
-    grid.innerHTML = photos.map(item => {
-        const p = item.photo;
-        const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.index);
-        const isNational = p.tags && p.tags.includes("全國");
-        return `
-            <div class="thumb-card month-photo-card" style="position: relative;"
-                 onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
-                 onmouseleave="clearPreview()">
-                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${item.county}', ${item.index})">
-                <div class="favorite-star" 
-                    data-county="${item.county}" 
-                    data-idx="${item.index}"
-                    onclick="event.stopPropagation(); addFavoriteSpot('${item.county}', ${item.index}, '${p.s.replace(/'/g, "\\'")}')" 
-                    style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">
-                    ${isFavorite ? '⭐' : '☆'}
-                </div>
-                <p>${p.s}</p>
-                <div class="photo-county-label">📍 ${item.county}</div>
-            </div>
-        `;
-    }).join("");
-}
-
 function showMenu(menuName) {
     if (activeMenu === menuName && document.querySelector(`#menu-${menuName} .menu-trigger`).classList.contains('locked')) return;
-    
     const dropdown = document.getElementById(`dropdown-${menuName}`);
     const trigger = document.querySelector(`#menu-${menuName} .menu-trigger`);
-    
     if (activeMenu && activeMenu !== menuName) {
         const prevDropdown = document.getElementById(`dropdown-${activeMenu}`);
         const prevTrigger = document.querySelector(`#menu-${activeMenu} .menu-trigger`);
         if (prevDropdown) prevDropdown.classList.remove("show");
         if (prevTrigger) prevTrigger.classList.remove("active");
     }
-    
     if (dropdown) dropdown.classList.add("show");
     if (trigger) trigger.classList.add("active");
     activeMenu = menuName;
@@ -468,7 +312,6 @@ function showMenu(menuName) {
 function hideMenu(menuName) {
     const trigger = document.querySelector(`#menu-${menuName} .menu-trigger`);
     if (trigger && trigger.classList.contains('locked')) return;
-    
     const dropdown = document.getElementById(`dropdown-${menuName}`);
     if (dropdown) dropdown.classList.remove("show");
     if (trigger) trigger.classList.remove("active");
@@ -478,9 +321,7 @@ function hideMenu(menuName) {
 function toggleMenu(menuName) {
     const dropdown = document.getElementById(`dropdown-${menuName}`);
     const trigger = document.querySelector(`#menu-${menuName} .menu-trigger`);
-    
     if (!dropdown || !trigger) return;
-    
     if (activeMenu === menuName && trigger.classList.contains('locked')) {
         dropdown.classList.remove("show");
         trigger.classList.remove("active");
@@ -506,8 +347,8 @@ function toggleMenu(menuName) {
 function setupHoverEvents() {
     const taiwanItem = document.getElementById('menu-taiwan');
     const transportItem = document.getElementById('menu-transport');
-    const foodItem = document.getElementById('menu-food');
     const monthlyItem = document.getElementById('menu-monthly');
+    const categoryItem = document.getElementById('menu-category');
     
     if (taiwanItem) {
         taiwanItem.addEventListener('mouseenter', () => {
@@ -518,7 +359,6 @@ function setupHoverEvents() {
             hoverTimeout = setTimeout(() => hideMenu('taiwan'), 200);
         });
     }
-    
     if (transportItem) {
         transportItem.addEventListener('mouseenter', () => {
             if (hoverTimeout) clearTimeout(hoverTimeout);
@@ -528,17 +368,6 @@ function setupHoverEvents() {
             hoverTimeout = setTimeout(() => hideMenu('transport'), 200);
         });
     }
-    
-    if (foodItem) {
-        foodItem.addEventListener('mouseenter', () => {
-            if (hoverTimeout) clearTimeout(hoverTimeout);
-            showMenu('food');
-        });
-        foodItem.addEventListener('mouseleave', () => {
-            hoverTimeout = setTimeout(() => hideMenu('food'), 200);
-        });
-    }
-    
     if (monthlyItem) {
         monthlyItem.addEventListener('mouseenter', () => {
             if (hoverTimeout) clearTimeout(hoverTimeout);
@@ -548,11 +377,20 @@ function setupHoverEvents() {
             hoverTimeout = setTimeout(() => hideMenu('monthly'), 200);
         });
     }
+    if (categoryItem) {
+        categoryItem.addEventListener('mouseenter', () => {
+            if (hoverTimeout) clearTimeout(hoverTimeout);
+            showMenu('category');
+        });
+        categoryItem.addEventListener('mouseleave', () => {
+            hoverTimeout = setTimeout(() => hideMenu('category'), 200);
+        });
+    }
     
     const taiwanDropdown = document.getElementById('dropdown-taiwan');
     const transportDropdown = document.getElementById('dropdown-transport');
-    const foodDropdown = document.getElementById('dropdown-food');
     const monthlyDropdown = document.getElementById('dropdown-monthly');
+    const categoryPanel = document.getElementById('category-panel');
     
     if (taiwanDropdown) {
         taiwanDropdown.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
@@ -560,219 +398,408 @@ function setupHoverEvents() {
             hoverTimeout = setTimeout(() => hideMenu('taiwan'), 200);
         });
     }
-    
     if (transportDropdown) {
         transportDropdown.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
         transportDropdown.addEventListener('mouseleave', () => {
             hoverTimeout = setTimeout(() => hideMenu('transport'), 200);
         });
     }
-    
-    if (foodDropdown) {
-        foodDropdown.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
-        foodDropdown.addEventListener('mouseleave', () => {
-            hoverTimeout = setTimeout(() => hideMenu('food'), 200);
-        });
-    }
-    
     if (monthlyDropdown) {
         monthlyDropdown.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
         monthlyDropdown.addEventListener('mouseleave', () => {
             hoverTimeout = setTimeout(() => hideMenu('monthly'), 200);
         });
     }
-}
-
-let currentPreviewRegion = null;
-let previewTimer = null;
-let currentCountyIndex = -1;
-
-function previewRegion(regionName) {
-    if (cruiseInt) {
-        clearInterval(cruiseInt);
-        cruiseInt = null;
-    }
-    
-    if (previewTimer) clearTimeout(previewTimer);
-    currentPreviewRegion = regionName;
-    
-    d3.selectAll(".county").each(function() {
-        const currentClass = d3.select(this).attr("class");
-        if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
-            d3.select(this).attr("class", "county");
-        }
-    });
-    d3.selectAll(".county-label").classed("label-visible", false);
-    
-    const kinmenBtn = d3.select("#btn-Kinmen");
-    const lienchiangBtn = d3.select("#btn-Lienchiang");
-    const penghuBtn = d3.select("#btn-Penghu");
-    if (!kinmenBtn.classed("locked")) kinmenBtn.style("background", "").style("color", "");
-    if (!lienchiangBtn.classed("locked")) lienchiangBtn.style("background", "").style("color", "");
-    if (!penghuBtn.classed("locked")) penghuBtn.style("background", "").style("color", "");
-    
-    const showIslands = !["直轄市", "市", "縣"].includes(regionName);
-    if(regionName === "離島區域") {
-        d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
-        d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
-        d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
-    }
-    groups[regionName].forEach(c => {
-        d3.select(`#path-${c}`).classed(groupStyles[regionName], true);
-        d3.selectAll(`.label-${c}`).classed("label-visible", true);
-        if (showIslands && subIslands[c]) {
-            subIslands[c].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
-        }
-    });
-    
-    if (regionName === "離島區域") {
-        d3.select("#fantasy-path-連江縣").classed(groupStyles[regionName], true);
-        d3.select("#fantasy-matsu-label").classed("label-visible", true);
-        if (window.fantasyExtraLabelElements) {
-            window.fantasyExtraLabelElements.forEach(el => {
-                el.classed("label-visible", true);
-            });
-        }
-    }
-}
-
-function previewCounty(countyName) {
-    if (cruiseInt) {
-        clearInterval(cruiseInt);
-        cruiseInt = null;
-    }
-    
-    d3.selectAll(".county").classed("reg-national", false);
-    d3.selectAll(".county").each(function() {
-        const currentClass = d3.select(this).attr("class");
-        if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
-            d3.select(this).attr("class", "county");
-        }
-    });
-    d3.selectAll(".county-label").classed("label-visible", false);
-    
-    d3.select(`#path-${countyName}`).classed("reg-system", true);
-    d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
-    
-    if (countyName === "金門縣") {
-        d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
-    } else if (countyName === "連江縣") {
-        d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
-    } else if (countyName === "澎湖縣") {
-        d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
-    }
-}
-
-function previewCountyWithNational(countyName, isNational) {
-    if (nationalHighlightTimeout) {
-        clearTimeout(nationalHighlightTimeout);
-    }
-    
-    if (isNational) {
-        d3.selectAll(".county").classed("reg-national", true);
-    } else {
-        d3.selectAll(".county").classed("reg-national", false);
-        d3.selectAll(".county").each(function() {
-            const currentClass = d3.select(this).attr("class");
-            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
-                d3.select(this).attr("class", "county");
-            }
+    if (categoryPanel) {
+        categoryPanel.addEventListener('mouseenter', () => clearTimeout(hoverTimeout));
+        categoryPanel.addEventListener('mouseleave', () => {
+            hoverTimeout = setTimeout(() => hideMenu('category'), 200);
         });
-        d3.select(`#path-${countyName}`).classed("reg-system", true);
-        d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
     }
 }
 
-function clearPreview() {
-    if (previewTimer) clearTimeout(previewTimer);
-    previewTimer = setTimeout(() => {
-        const hoveredItem = document.querySelector('.vertical-item:hover');
-        if (hoveredItem) {
-            const img = hoveredItem.querySelector('img');
-            let regionName = null;
-            if (img) {
-                const alt = img.getAttribute('alt');
-                if (alt === '北') regionName = '北臺灣';
-                else if (alt === '中') regionName = '中臺灣';
-                else if (alt === '南') regionName = '南臺灣';
-                else if (alt === '東') regionName = '東臺灣';
-                else if (alt === '西') regionName = '離島區域';
+// ========== 美食模式（保留但未使用，以防舊程式碼呼叫） ==========
+let isFoodMode = false;
+function toggleFoodMode() {
+    isFoodMode = !isFoodMode;
+    const foodBtn = document.querySelector('#menu-food .menu-trigger');
+    if (foodBtn) {
+        if (isFoodMode) {
+            foodBtn.innerHTML = "取消美食模式";
+            foodBtn.classList.add("food-mode-active");
+            showAllFoodPhotos();
+        } else {
+            foodBtn.innerHTML = "🍜 美食推介";
+            foodBtn.classList.remove("food-mode-active");
+            const cnameEl = document.getElementById("cname");
+            if (cnameEl && cnameEl.innerText !== "等待探索" && cnameEl.innerText !== "全台美食") {
+                renderThumbs(cnameEl.innerText);
+            } else {
+                renderThumbs("臺北市");
+                const countyPath = d3.select(`#path-臺北市`);
+                if (countyPath.node()) {
+                    clearAllHighlights();
+                    countyPath.classed("active", true);
+                    d3.selectAll(`.label-臺北市`).classed("label-visible", true);
+                }
             }
-            if (regionName) {
-                previewRegion(regionName);
-            }
-            return;
         }
-        
-        d3.selectAll(".county").classed("reg-national", false);
-        d3.selectAll(".county").each(function() {
-            const currentClass = d3.select(this).attr("class");
-            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
-                d3.select(this).attr("class", "county");
-            }
-        });
-        d3.selectAll(".county-label").classed("label-visible", false);
-        
-        const kinmenBtn = d3.select("#btn-Kinmen");
-        const lienchiangBtn = d3.select("#btn-Lienchiang");
-        const penghuBtn = d3.select("#btn-Penghu");
-        
-        if (!kinmenBtn.classed("locked")) kinmenBtn.style("background", "").style("color", "");
-        if (!lienchiangBtn.classed("locked")) lienchiangBtn.style("background", "").style("color", "");
-        if (!penghuBtn.classed("locked")) penghuBtn.style("background", "").style("color", "");
-        
-        currentPreviewRegion = null;
-        
-        if (isCruise && !cruiseInt) {
-            cruiseInt = setInterval(runStep, uiConfig.cruiseInterval);
-        }
-    }, 50);
+    }
 }
+function showAllFoodPhotos() { /* 保留但不再使用 */ }
 
-function selectRegionAndClose(regionName) {
+// ========== 全國按鈕 ==========
+function showNationwidePhotos() {
+    if (isCategoryMode) {
+        isCategoryMode = false;
+        setCategoryModeUI(false);
+        const catBtn = document.querySelector('#menu-category .menu-trigger');
+        if (catBtn) catBtn.classList.remove("active");
+        const catPanel = document.getElementById("category-panel");
+        if (catPanel) catPanel.classList.remove("show");
+    }
+    if (isMonthlyPanelOpen) {
+        const monthlyPanel = document.getElementById("monthly-panel");
+        if (monthlyPanel) monthlyPanel.classList.remove("show");
+        isMonthlyPanelOpen = false;
+        const nationwideBtn = document.getElementById("nationwide-btn");
+        if (nationwideBtn) nationwideBtn.style.display = 'inline-block';
+    }
     clearAllHighlights();
-    if (groups[regionName]) {
-        highlightGroup(regionName);
+
+    let nationwidePhotos = photoData["全臺"] || [];
+    const sorted = sortByRating(nationwidePhotos);
+    const grid = document.getElementById("thumb-grid");
+    const cname = document.getElementById("cname");
+    cname.innerHTML = `🌍 全國景點<br><span style="font-size: 0.6em; color: var(--accent); font-weight: normal;">共 ${sorted.length} 個推薦</span>`;
+    const totalSpan = document.getElementById("total-count");
+    if (totalSpan) totalSpan.innerText = sorted.length;
+    grid.innerHTML = sorted.map((p, i) => {
+        const isFavorite = favoriteSpots.some(spot => spot.county === "全臺" && spot.photoIndex === i);
+        const isNational = p.tags && p.tags.includes("全國");
+        const catIcon = getCategoryIcon(p.tags);
+        const stars = getRatingStars(p.rating);
+        return `
+            <div class="thumb-card" style="position: relative;"
+                 onmouseover="previewCountyWithNational('全臺', ${isNational})"
+                 onmouseleave="clearPreview()">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('全臺', ${i})">
+                <div class="favorite-star" data-county="全臺" data-idx="${i}" onclick="event.stopPropagation(); addFavoriteSpot('全臺', ${i}, '${p.s.replace(/'/g, "\\'")}')" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">${isFavorite ? '⭐' : '☆'}</div>
+                <p>${p.s}</p>
+                ${catIcon ? `<div class="category-icons">${catIcon}</div>` : ''}
+                ${stars ? `<div class="rating-stars">${stars}</div>` : ''}
+            </div>
+        `;
+    }).join("");
+}
+
+// ========== 分類探索模式 ==========
+function toggleCategoryPanel() {
+    const panel = document.getElementById("category-panel");
+    if (!panel) return;
+    panel.classList.toggle("show");
+    if (panel.classList.contains("show")) {
+        const monthlyPanel = document.getElementById("monthly-panel");
+        if (monthlyPanel) monthlyPanel.classList.remove("show");
+        isMonthlyPanelOpen = false;
     }
-    
-    if (activeMenu) {
-        const dropdown = document.getElementById(`dropdown-${activeMenu}`);
-        const trigger = document.querySelector(`#menu-${activeMenu} .menu-trigger`);
-        if (dropdown) dropdown.classList.remove("show");
-        if (trigger) {
-            trigger.classList.remove("active");
-            trigger.classList.remove("locked");
+}
+
+function selectCategory(catName, keywordsStr) {
+    const keywords = keywordsStr.split(',').map(k => k.trim());
+    currentCategory = catName;
+    currentCategoryKeywords = keywords;
+    isCategoryMode = true;
+    setCategoryModeUI(true);
+    const panel = document.getElementById("category-panel");
+    if (panel) panel.classList.remove("show");
+    showCategoryPhotos(catName, keywords);
+}
+
+function showCategoryPhotos(categoryName, keywords) {
+    setCategoryModeUI(true);
+    const allPhotos = [];
+    for (const [county, photos] of Object.entries(photoData)) {
+        for (let i = 0; i < photos.length; i++) {
+            const photo = photos[i];
+            if (photo.tags && keywords.some(kw => photo.tags.includes(kw))) {
+                allPhotos.push({ county, originalIndex: i, photo });
+            }
         }
-        activeMenu = null;
+    }
+    const sorted = sortByRating(allPhotos);
+    const grid = document.getElementById("thumb-grid");
+    const cname = document.getElementById("cname");
+    cname.innerHTML = `🔍 ${categoryName}<br><span style="font-size: 0.6em; color: var(--accent); font-weight: normal;">共 ${sorted.length} 個景點</span>`;
+    const totalSpan = document.getElementById("total-count");
+    if (totalSpan) totalSpan.innerText = `🔍 ${sorted.length}`;
+
+    grid.innerHTML = sorted.map(item => {
+        const p = item.photo;
+        const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.originalIndex);
+        const isNational = p.tags && p.tags.includes("全國");
+        const catIcon = getCategoryIcon(p.tags);
+        const stars = getRatingStars(p.rating);
+        return `
+            <div class="thumb-card month-photo-card" data-county="${item.county}" data-original-index="${item.originalIndex}" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
+                 onmouseleave="clearPreview()">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'">
+                <div class="favorite-star" data-county="${item.county}" data-idx="${item.originalIndex}" onclick="event.stopPropagation(); addFavoriteSpot('${item.county}', ${item.originalIndex}, '${p.s.replace(/'/g, "\\'")}')" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">${isFavorite ? '⭐' : '☆'}</div>
+                <p>${p.s}</p>
+                <div class="photo-county-label">📍 ${item.county}</div>
+                ${catIcon ? `<div class="category-icons">${catIcon}</div>` : ''}
+                ${stars ? `<div class="rating-stars">${stars}</div>` : ''}
+            </div>
+        `;
+    }).join("");
+
+    grid.querySelectorAll('.thumb-card img').forEach(img => {
+        img.onclick = (e) => {
+            e.stopPropagation();
+            const card = img.closest('.thumb-card');
+            const county = card.getAttribute('data-county');
+            const idx = parseInt(card.getAttribute('data-original-index'));
+            if (county && !isNaN(idx)) {
+                openModal(county, idx);
+            }
+        };
+    });
+}
+
+function showCountyCategoryPhotos(countyName) {
+    const photos = photoData[countyName] || [];
+    const filteredWithIndex = [];
+    for (let i = 0; i < photos.length; i++) {
+        const p = photos[i];
+        if (p.tags && currentCategoryKeywords.some(kw => p.tags.includes(kw))) {
+            filteredWithIndex.push({ photo: p, originalIndex: i });
+        }
+    }
+    const sorted = filteredWithIndex.sort((a, b) => (b.photo.rating || 3) - (a.photo.rating || 3));
+    const grid = document.getElementById("thumb-grid");
+    const cname = document.getElementById("cname");
+    const desc = window.countyDescriptions ? (window.countyDescriptions[countyName] || "") : "";
+    cname.innerHTML = `🔍 ${countyName}<br><span style="color: var(--accent);">${desc} (${currentCategory})</span>`;
+    if (sorted.length === 0) {
+        grid.innerHTML = `<div class="no-photos">📷 這個縣市暫時沒有「${currentCategory}」相關景點</div>`;
+        return;
+    }
+    grid.innerHTML = sorted.map(item => {
+        const p = item.photo;
+        const originalIndex = item.originalIndex;
+        const isFavorite = favoriteSpots.some(spot => spot.county === countyName && spot.photoIndex === originalIndex);
+        const isNational = p.tags && p.tags.includes("全國");
+        const catIcon = getCategoryIcon(p.tags);
+        const stars = getRatingStars(p.rating);
+        return `
+            <div class="thumb-card month-photo-card" data-county="${countyName}" data-original-index="${originalIndex}" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${countyName}', ${isNational})"
+                 onmouseleave="clearPreview()">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'">
+                <div class="favorite-star" data-county="${countyName}" data-idx="${originalIndex}" onclick="event.stopPropagation(); addFavoriteSpot('${countyName}', ${originalIndex}, '${p.s.replace(/'/g, "\\'")}')" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">${isFavorite ? '⭐' : '☆'}</div>
+                <p>${p.s}</p>
+                <div class="photo-county-label">📍 ${countyName}</div>
+                ${catIcon ? `<div class="category-icons">${catIcon}</div>` : ''}
+                ${stars ? `<div class="rating-stars">${stars}</div>` : ''}
+            </div>
+        `;
+    }).join("");
+
+    grid.querySelectorAll('.thumb-card img').forEach(img => {
+        img.onclick = (e) => {
+            e.stopPropagation();
+            const card = img.closest('.thumb-card');
+            const county = card.getAttribute('data-county');
+            const idx = parseInt(card.getAttribute('data-original-index'));
+            if (county && !isNaN(idx)) {
+                openModal(county, idx);
+            }
+        };
+    });
+}
+
+// ========== 每月必去 ==========
+function toggleMonthlyPanel() {
+    const panel = document.getElementById("monthly-panel");
+    if (!panel) return;
+    isMonthlyPanelOpen = !isMonthlyPanelOpen;
+    if (isMonthlyPanelOpen) {
+        panel.classList.add("show");
+        const nationwideBtn = document.getElementById("nationwide-btn");
+        if (nationwideBtn) nationwideBtn.style.display = 'none';
+        const catPanel = document.getElementById("category-panel");
+        if (catPanel) catPanel.classList.remove("show");
+    } else {
+        panel.classList.remove("show");
+        const nationwideBtn = document.getElementById("nationwide-btn");
+        if (nationwideBtn) nationwideBtn.style.display = 'inline-block';
     }
 }
 
-function clearAllHighlights() {
-    d3.selectAll(".county").classed("reg-national", false);
-    d3.selectAll(".county").attr("class", "county");
-    d3.selectAll(".county-label").classed("label-visible", false);
-    d3.select("#btn-Kinmen").style("background", "").style("color", "");
-    d3.select("#btn-Lienchiang").style("background", "").style("color", "");
-    d3.select("#btn-Penghu").style("background", "").style("color", "");
-    
-    d3.select("#fantasy-path-連江縣").classed("reg-islands", false);
-    d3.select("#fantasy-matsu-label").classed("label-visible", false);
-    if (window.fantasyExtraLabelElements) {
-        window.fantasyExtraLabelElements.forEach(el => {
-            el.classed("label-visible", false);
-        });
+function filterByMonth(month) {
+    if (isCategoryMode) {
+        isCategoryMode = false;
+        setCategoryModeUI(false);
+        const catBtn = document.querySelector('#menu-category .menu-trigger');
+        if (catBtn) catBtn.classList.remove("active");
     }
+    showMonthPhotos(month);
+    const panel = document.getElementById("monthly-panel");
+    if (panel) panel.classList.remove("show");
+    isMonthlyPanelOpen = false;
+    const nationwideBtn = document.getElementById("nationwide-btn");
+    if (nationwideBtn) nationwideBtn.style.display = 'inline-block';
 }
 
-// ========== 照片面板控制 ==========
+function showMonthPhotos(month) {
+    const monthStr = `${month}月`;
+    const allPhotos = [];
+    for (const [county, photos] of Object.entries(photoData)) {
+        for (let i = 0; i < photos.length; i++) {
+            const photo = photos[i];
+            if (photo.tags && photo.tags.includes(monthStr)) {
+                allPhotos.push({ county, originalIndex: i, photo });
+            }
+        }
+    }
+    if (allPhotos.length === 0) return;
+    displayMonthPhotos(allPhotos, monthStr);
+}
+
+function displayMonthPhotos(photos, monthStr) {
+    const sorted = sortByRating(photos);
+    const grid = document.getElementById("thumb-grid");
+    const cname = document.getElementById("cname");
+    cname.innerHTML = `📅 ${monthStr} 推薦景點<br><span style="font-size: 0.6em; color: var(--accent); font-weight: normal;">共 ${sorted.length} 個景點</span>`;
+    grid.innerHTML = sorted.map(item => {
+        const p = item.photo;
+        const isFavorite = favoriteSpots.some(spot => spot.county === item.county && spot.photoIndex === item.originalIndex);
+        const isNational = p.tags && p.tags.includes("全國");
+        const catIcon = getCategoryIcon(p.tags);
+        const stars = getRatingStars(p.rating);
+        return `
+            <div class="thumb-card month-photo-card" data-county="${item.county}" data-original-index="${item.originalIndex}" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${item.county}', ${isNational})"
+                 onmouseleave="clearPreview()">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'">
+                <div class="favorite-star" data-county="${item.county}" data-idx="${item.originalIndex}" onclick="event.stopPropagation(); addFavoriteSpot('${item.county}', ${item.originalIndex}, '${p.s.replace(/'/g, "\\'")}')" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">${isFavorite ? '⭐' : '☆'}</div>
+                <p>${p.s}</p>
+                <div class="photo-county-label">📍 ${item.county}</div>
+                ${catIcon ? `<div class="category-icons">${catIcon}</div>` : ''}
+                ${stars ? `<div class="rating-stars">${stars}</div>` : ''}
+            </div>
+        `;
+    }).join("");
+
+    grid.querySelectorAll('.thumb-card img').forEach(img => {
+        img.onclick = (e) => {
+            e.stopPropagation();
+            const card = img.closest('.thumb-card');
+            const county = card.getAttribute('data-county');
+            const idx = parseInt(card.getAttribute('data-original-index'));
+            if (county && !isNaN(idx)) {
+                openModal(county, idx);
+            }
+        };
+    });
+}
+
+// ========== 照片顯示（正常模式） ==========
+function renderThumbs(name) {
+    const grid = document.getElementById("thumb-grid");
+    const cname = document.getElementById("cname");
+    if (!grid) return;
+    let photos = photoData[name] || [];
+    photos = sortByRating(photos);
+    if (cname) {
+        const desc = window.countyDescriptions ? (window.countyDescriptions[name] || "") : "";
+        if (desc) cname.innerHTML = `${name}<br><span style="color: var(--accent);">${desc}</span>`;
+        else cname.innerText = name;
+    }
+    grid.innerHTML = photos.map((p, i) => {
+        const isFavorite = favoriteSpots.some(spot => spot.county === name && spot.photoIndex === i);
+        const isNational = p.tags && p.tags.includes("全國");
+        const catIcon = getCategoryIcon(p.tags);
+        const stars = getRatingStars(p.rating);
+        return `
+            <div class="thumb-card" data-county="${name}" data-original-index="${i}" style="position: relative;"
+                 onmouseover="previewCountyWithNational('${name}', ${isNational})"
+                 onmouseleave="clearPreview()">
+                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'">
+                <div class="favorite-star" data-county="${name}" data-idx="${i}" onclick="event.stopPropagation(); addFavoriteSpot('${name}', ${i}, '${p.s.replace(/'/g, "\\'")}')" style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">${isFavorite ? '⭐' : '☆'}</div>
+                <p>${p.s}</p>
+                ${catIcon ? `<div class="category-icons">${catIcon}</div>` : ''}
+                ${stars ? `<div class="rating-stars">${stars}</div>` : ''}
+            </div>
+        `;
+    }).join("");
+    updateTotalCount();
+
+    grid.querySelectorAll('.thumb-card img').forEach(img => {
+        img.onclick = (e) => {
+            e.stopPropagation();
+            const card = img.closest('.thumb-card');
+            const county = card.getAttribute('data-county');
+            const idx = parseInt(card.getAttribute('data-original-index'));
+            if (county && !isNaN(idx)) {
+                openModal(county, idx);
+            }
+        };
+    });
+}
+
+// 縣市選擇（整合分類模式）
+function selectCounty(name, el) {
+    if (isCategoryMode) {
+        showCountyCategoryPhotos(name);
+        clearAllHighlights();
+        if(el) el.classed("active", true);
+        d3.selectAll(`.label-${name}`).classed("label-visible", true);
+        if(subIslands[name]) subIslands[name].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
+        return;
+    }
+    // 正常模式
+    clearAllHighlights();
+    if(el) el.classed("active", true);
+    d3.selectAll(`.label-${name}`).classed("label-visible", true);
+    if(subIslands[name]) subIslands[name].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
+    renderThumbs(name);
+}
+
+// ========== 通用函數 ==========
+function openModal(c, i) {
+    userInteractionStop();
+    if (!photoData[c] || !photoData[c][i]) {
+        console.error('Invalid photo data', c, i);
+        return;
+    }
+    const p = photoData[c][i];
+    const modalImg = document.getElementById("modal-img");
+    const modalTitle = document.getElementById("modal-title");
+    const modalOverlay = document.getElementById("modal-overlay");
+    if (modalImg) modalImg.src = getLargePhotoUrl(p.i);
+    if (modalTitle) {
+        let monthText = "";
+        if (p.tags) {
+            const months = p.tags.filter(t => t.match(/\d月/));
+            if (months.length > 0) monthText = `<br><span style="font-size: 0.7em; color: var(--accent);">📅 適合月份：${months.join('、')}</span>`;
+        }
+        modalTitle.innerHTML = `${p.s}${monthText}`;
+    }
+    if (modalOverlay) modalOverlay.style.display = "flex";
+    ensurePhotoPanelOpen();
+}
+function closeModal() {
+    const modalOverlay = document.getElementById("modal-overlay");
+    if (modalOverlay) modalOverlay.style.display = "none";
+}
 function togglePhotoPanel() {
     const panel = document.getElementById("photoPanel");
     const handleText = document.getElementById("panel-handle-text");
     const body = document.body;
     if (!panel) return;
-    
     panel.classList.toggle("open");
-    
     if (panel.classList.contains("open")) {
         body.classList.add("panel-open");
         if (handleText) handleText.innerHTML = "📷 收起照片";
@@ -781,7 +808,6 @@ function togglePhotoPanel() {
         if (handleText) handleText.innerHTML = "📷 展開照片";
     }
 }
-
 function ensurePhotoPanelOpen() {
     const panel = document.getElementById("photoPanel");
     const body = document.body;
@@ -798,24 +824,19 @@ function searchCounty() {
     const resultsDiv = document.getElementById('search-results');
     if (!input || !resultsDiv) return;
     const keyword = input.value.trim();
-    
     if (keyword === '') {
         resultsDiv.classList.remove('show');
         return;
     }
-    
     if (!allCountiesNames || allCountiesNames.length === 0) {
         console.warn('縣市名稱列表尚未準備完成');
         resultsDiv.innerHTML = '<div class="search-result-item">⏳ 地圖載入中，請稍後...</div>';
         resultsDiv.classList.add('show');
         return;
     }
-    
     const matches = allCountiesNames.filter(name => name.includes(keyword));
     if (matches.length > 0) {
-        resultsDiv.innerHTML = matches.map(name => 
-            `<div class="search-result-item" onclick="goToCounty('${name}')">📍 ${name}</div>`
-        ).join('');
+        resultsDiv.innerHTML = matches.map(name => `<div class="search-result-item" onclick="goToCounty('${name}')">📍 ${name}</div>`).join('');
         resultsDiv.classList.add('show');
     } else {
         resultsDiv.innerHTML = '<div class="search-result-item">😢 找不到縣市</div>';
@@ -873,80 +894,7 @@ function toggleAirports(type) {
     }
 }
 
-// ========== 縣市選擇 ==========
-function selectCounty(name, el) {
-    if (isFoodMode) {
-        showCountyFoodPhotos(name);
-        
-        clearAllHighlights();
-        if(el) el.classed("active", true);
-        if (name === "金門縣") {
-            d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
-        } else if (name === "連江縣") {
-            d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
-        } else if (name === "澎湖縣") {
-            d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
-        }
-        d3.selectAll(`.label-${name}`).classed("label-visible", true);
-        if(subIslands[name]) {
-            subIslands[name].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
-        }
-        return;
-    }
-    
-    clearAllHighlights();
-    if(el) el.classed("active", true);
-    if (name === "金門縣") {
-        d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
-    } else if (name === "連江縣") {
-        d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
-    } else if (name === "澎湖縣") {
-        d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
-    }
-    d3.selectAll(`.label-${name}`).classed("label-visible", true);
-    if(subIslands[name]) {
-        subIslands[name].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
-    }
-    renderThumbs(name);
-}
-
-function showCountyFoodPhotos(countyName) {
-    const photos = photoData[countyName] || [];
-    const foodPhotos = photos.filter(p => p.tags && p.tags.includes("美食"));
-    
-    const grid = document.getElementById("thumb-grid");
-    const cname = document.getElementById("cname");
-    
-    const desc = window.countyDescriptions ? (window.countyDescriptions[countyName] || "") : "";
-    cname.innerHTML = `🍜 ${countyName}<br><span style="color: var(--accent);">${desc} 美食特輯</span>`;
-    
-    if (foodPhotos.length === 0) {
-        grid.innerHTML = `<div class="no-photos">📷 這個縣市暫時沒有美食照片</div>`;
-        return;
-    }
-    
-    grid.innerHTML = foodPhotos.map((p, i) => {
-        const isFavorite = favoriteSpots.some(spot => spot.county === countyName && spot.photoIndex === i);
-        const isNational = p.tags && p.tags.includes("全國");
-        return `
-            <div class="thumb-card month-photo-card" style="position: relative;"
-                 onmouseover="previewCountyWithNational('${countyName}', ${isNational})"
-                 onmouseleave="clearPreview()">
-                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${countyName}', ${i})">
-                <div class="favorite-star" 
-                    data-county="${countyName}" 
-                    data-idx="${i}"
-                    onclick="event.stopPropagation(); addFavoriteSpot('${countyName}', ${i}, '${p.s.replace(/'/g, "\\'")}')" 
-                    style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">
-                    ${isFavorite ? '⭐' : '☆'}
-                </div>
-                <p>${p.s}</p>
-                <div class="photo-county-label">📍 ${countyName}</div>
-            </div>
-        `;
-    }).join("");
-}
-
+// ========== 離島按鈕 ==========
 function clickIsland(n, b) {
     userInteractionStop();
     if (n === "連江縣") {
@@ -967,7 +915,6 @@ function hoverIsland(countyName) {
     d3.selectAll(".county").classed("reg-national", false);
     d3.selectAll(".county").attr("class", "county");
     d3.selectAll(".county-label").classed("label-visible", false);
-    
     if (countyName === "連江縣") {
         d3.select("#fantasy-path-連江縣").classed("active", true);
         d3.select("#fantasy-matsu-label").classed("label-visible", true);
@@ -981,7 +928,6 @@ function hoverIsland(countyName) {
             window.subIslands[countyName].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
         }
     }
-    
     d3.select(`#btn-${countyName === '連江縣' ? 'Lienchiang' : countyName === '金門縣' ? 'Kinmen' : 'Penghu'}`).style("background", "var(--accent)").style("color", "#000");
 }
 
@@ -997,11 +943,9 @@ function clearIslandHover() {
             window.fantasyExtraLabelElements.forEach(el => el.classed("label-visible", false));
         }
     }
-    
     const btnKinmen = d3.select("#btn-Kinmen");
     const btnLienchiang = d3.select("#btn-Lienchiang");
     const btnPenghu = d3.select("#btn-Penghu");
-    
     if (!btnKinmen.classed("locked")) btnKinmen.style("background", "").style("color", "");
     if (!btnLienchiang.classed("locked")) btnLienchiang.style("background", "").style("color", "");
     if (!btnPenghu.classed("locked")) btnPenghu.style("background", "").style("color", "");
@@ -1022,7 +966,6 @@ function highlightGroup(gName) {
             subIslands[c].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
         }
     });
-    
     if (gName === "離島區域") {
         d3.select("#fantasy-path-連江縣").classed(groupStyles[gName], true);
         d3.select("#fantasy-matsu-label").classed("label-visible", true);
@@ -1052,12 +995,10 @@ function startCruise() {
     if (cruiseDot) cruiseDot.style.background = uiConfig.accentColor;
     if (cruiseText) cruiseText.innerHTML = "巡航中";
     ensurePhotoPanelOpen();
-    
     if (!cruiseList || cruiseList.length === 0) {
         console.warn('巡航列表尚未準備完成，等待資料載入...');
         return;
     }
-    
     cruiseInt = setInterval(runStep, uiConfig.cruiseInterval);
 }
 
@@ -1066,7 +1007,6 @@ function runStep() {
         console.warn('巡航列表尚未準備完成，跳過本次巡航');
         return;
     }
-    
     const itm = cruiseList[curIdx];
     if(itm.t === 'm') {
         selectCounty(itm.n, d3.select(`#path-${itm.n}`));
@@ -1083,7 +1023,6 @@ function toggleCruiseMaster() {
     const cruiseBtn = document.getElementById("cruise-btn");
     const cruiseDot = document.getElementById("cruise-dot");
     const cruiseText = document.getElementById("cruise-text");
-    
     if (isCruise) {
         cruiseBtn.classList.add("active");
         if (cruiseText) cruiseText.innerHTML = "巡航中";
@@ -1096,113 +1035,6 @@ function toggleCruiseMaster() {
         clearInterval(cruiseInt);
         cruiseInt = null;
     }
-}
-
-// ========== 照片顯示 ==========
-function renderThumbs(name) {
-    const grid = document.getElementById("thumb-grid");
-    const cname = document.getElementById("cname");
-    if (!grid) return;
-    let photos = photoData[name] || [];
-    
-    if (cname) {
-        const desc = window.countyDescriptions ? (window.countyDescriptions[name] || "") : "";
-        if (desc) {
-            cname.innerHTML = `${name}<br><span style="color: var(--accent);">${desc}</span>`;
-        } else {
-            cname.innerText = name;
-        }
-    }
-    
-    grid.innerHTML = photos.map((p, i) => {
-        const isFavorite = favoriteSpots.some(spot => spot.county === name && spot.photoIndex === i);
-        const isNational = p.tags && p.tags.includes("全國");
-        return `
-            <div class="thumb-card" style="position: relative;"
-                 onmouseover="previewCountyWithNational('${name}', ${isNational})"
-                 onmouseleave="clearPreview()">
-                <img src="${getSmallPhotoUrl(p.i)}" onerror="this.src='https://placehold.co/200x150?text=Photo'" onclick="openModal('${name}', ${i})">
-                <div class="favorite-star" 
-                    data-county="${name}" 
-                    data-idx="${i}"
-                    onclick="event.stopPropagation(); addFavoriteSpot('${name}', ${i}, '${p.s.replace(/'/g, "\\'")}')" 
-                    style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;">
-                    ${isFavorite ? '⭐' : '☆'}
-                </div>
-                <p>${p.s}</p>
-            </div>
-        `;
-    }).join("");
-    
-    if (window.innerWidth <= 768) {
-        const gridEl = document.getElementById("thumb-grid");
-        if (gridEl) {
-            let isDown = false;
-            let startX;
-            let scrollLeft;
-            
-            const onMouseDown = (e) => {
-                isDown = true;
-                gridEl.style.cursor = 'grabbing';
-                startX = e.pageX - gridEl.offsetLeft;
-                scrollLeft = gridEl.scrollLeft;
-            };
-            
-            const onMouseLeave = () => {
-                isDown = false;
-                gridEl.style.cursor = 'grab';
-            };
-            
-            const onMouseUp = () => {
-                isDown = false;
-                gridEl.style.cursor = 'grab';
-            };
-            
-            const onMouseMove = (e) => {
-                if (!isDown) return;
-                e.preventDefault();
-                const x = e.pageX - gridEl.offsetLeft;
-                const walk = (x - startX) * 2;
-                gridEl.scrollLeft = scrollLeft - walk;
-            };
-            
-            gridEl.addEventListener('mousedown', onMouseDown);
-            gridEl.addEventListener('mouseleave', onMouseLeave);
-            gridEl.addEventListener('mouseup', onMouseUp);
-            gridEl.addEventListener('mousemove', onMouseMove);
-            gridEl.style.cursor = 'grab';
-        }
-    }
-
-    // 更新總照片數（確保正確）
-    updateTotalCount();
-}
-
-function openModal(c, i) {
-    userInteractionStop();
-    const p = photoData[c][i];
-    const modalImg = document.getElementById("modal-img");
-    const modalTitle = document.getElementById("modal-title");
-    const modalOverlay = document.getElementById("modal-overlay");
-    
-    if (modalImg) modalImg.src = getLargePhotoUrl(p.i);
-    if (modalTitle) {
-        let monthText = "";
-        if (p.tags) {
-            const months = p.tags.filter(t => t.match(/\d月/));
-            if (months.length > 0) {
-                monthText = `<br><span style="font-size: 0.7em; color: var(--accent);">📅 適合月份：${months.join('、')}</span>`;
-            }
-        }
-        modalTitle.innerHTML = `${p.s}${monthText}`;
-    }
-    if (modalOverlay) modalOverlay.style.display = "flex";
-    ensurePhotoPanelOpen();
-}
-
-function closeModal() {
-    const modalOverlay = document.getElementById("modal-overlay");
-    if (modalOverlay) modalOverlay.style.display = "none";
 }
 
 // ========== 音樂控制 ==========
@@ -1246,10 +1078,8 @@ function initKeyboardControl() {
             console.log('等待縣市資料載入...');
             return false;
         }
-        
         allCountiesList = [...allCountiesNames];
         console.log('✅ 鍵盤控制已啟用，共 ' + allCountiesList.length + ' 個縣市');
-        
         const neighbors = {
             "基隆市": { N: "連江縣", S: "臺北市", E: "新北市", W: "新北市" },
             "臺北市": { N: "基隆市", S: "新北市", E: "基隆市", W: "新北市" },
@@ -1274,61 +1104,40 @@ function initKeyboardControl() {
             "金門縣": { E: "澎湖縣", W: null, N: "連江縣", S: "澎湖縣" },
             "連江縣": { S: "基隆市", N: null, W: "金門縣", E: "基隆市" }
         };
-        
         function findNearestCounty(currentCountyName, targetDirection) {
-            if (neighbors[currentCountyName] && neighbors[currentCountyName][targetDirection]) {
-                return neighbors[currentCountyName][targetDirection];
-            }
-            return null;
+            return neighbors[currentCountyName]?.[targetDirection] || null;
         }
-        
         document.addEventListener('keydown', function(e) {
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
-            
+            if (document.activeElement?.tagName === 'INPUT') return;
             let currentCounty = null;
             d3.selectAll(".county.active").each(function() {
                 const id = d3.select(this).attr("id");
-                if (id) {
-                    if (id === 'fantasy-path-連江縣') {
-                        currentCounty = '連江縣';
-                    } else if (id.startsWith('path-')) {
-                        currentCounty = id.replace('path-', '');
-                    }
-                }
+                if (id === 'fantasy-path-連江縣') currentCounty = '連江縣';
+                else if (id?.startsWith('path-')) currentCounty = id.replace('path-', '');
             });
-            
             if (!currentCounty) {
                 const cnameEl = document.getElementById('cname');
                 if (cnameEl && cnameEl.innerText !== '等待探索' && cnameEl.innerText !== '全台美食') {
                     currentCounty = cnameEl.innerText.split('<')[0];
                 }
             }
-            
             if (!currentCounty) return;
-            
             let direction = null;
-            switch(e.key) {
-                case 'ArrowUp': direction = 'N'; break;
-                case 'ArrowDown': direction = 'S'; break;
-                case 'ArrowLeft': direction = 'W'; break;
-                case 'ArrowRight': direction = 'E'; break;
-                default: return;
-            }
-            
+            if (e.key === 'ArrowUp') direction = 'N';
+            else if (e.key === 'ArrowDown') direction = 'S';
+            else if (e.key === 'ArrowLeft') direction = 'W';
+            else if (e.key === 'ArrowRight') direction = 'E';
+            else return;
             e.preventDefault();
             userInteractionStop();
-            
             const newCounty = findNearestCounty(currentCounty, direction);
-            
             if (newCounty && newCounty !== currentCounty) {
                 if (newCounty === "連江縣") {
                     const fantasyPath = d3.select("#fantasy-path-連江縣");
                     if (fantasyPath.node()) {
                         selectCounty(newCounty, fantasyPath);
                         if (window.fantasyExtraLabelElements) {
-                            window.fantasyExtraLabelElements.forEach(el => {
-                                el.classed("label-visible", true);
-                            });
+                            window.fantasyExtraLabelElements.forEach(el => el.classed("label-visible", true));
                         }
                     } else {
                         const countyPath = d3.select(`#path-${newCounty}`);
@@ -1341,10 +1150,8 @@ function initKeyboardControl() {
                 ensurePhotoPanelOpen();
             }
         });
-        
         return true;
     }
-    
     if (!setupKeyboard()) {
         window.addEventListener('taiwanMapDataReady', function onReady() {
             setupKeyboard();
@@ -1355,24 +1162,18 @@ function initKeyboardControl() {
 
 function moveDirection(direction) {
     userInteractionStop();
-    
     let currentCounty = null;
     d3.selectAll(".county.active").each(function() {
         const id = d3.select(this).attr("id");
-        if (id && id.startsWith('path-')) {
-            currentCounty = id.replace('path-', '');
-        }
+        if (id?.startsWith('path-')) currentCounty = id.replace('path-', '');
     });
-    
     if (!currentCounty) {
         const cnameEl = document.getElementById('cname');
         if (cnameEl && cnameEl.innerText !== '等待探索' && cnameEl.innerText !== '全台美食') {
             currentCounty = cnameEl.innerText.split('<')[0];
         }
     }
-    
     if (!currentCounty) return;
-    
     const neighbors = {
         "基隆市": { N: "連江縣", S: "臺北市", E: "新北市", W: "新北市" },
         "臺北市": { N: "基隆市", S: "新北市", E: "基隆市", W: "新北市" },
@@ -1397,22 +1198,13 @@ function moveDirection(direction) {
         "金門縣": { E: "澎湖縣", W: null, N: "連江縣", S: "澎湖縣" },
         "連江縣": { S: "基隆市", N: null, W: "金門縣", E: "基隆市" }
     };
-    
-    let newCounty = null;
-    if (neighbors[currentCounty] && neighbors[currentCounty][direction]) {
-        newCounty = neighbors[currentCounty][direction];
-    }
-    
+    let newCounty = neighbors[currentCounty]?.[direction];
     if (newCounty && newCounty !== currentCounty) {
         if (newCounty === "連江縣") {
             const fantasyPath = d3.select("#fantasy-path-連江縣");
             if (fantasyPath.node()) {
                 selectCounty(newCounty, fantasyPath);
-                if (window.fantasyExtraLabelElements) {
-                    window.fantasyExtraLabelElements.forEach(el => {
-                        el.classed("label-visible", true);
-                    });
-                }
+                if (window.fantasyExtraLabelElements) window.fantasyExtraLabelElements.forEach(el => el.classed("label-visible", true));
             }
         } else {
             const countyPath = d3.select(`#path-${newCounty}`);
@@ -1422,69 +1214,52 @@ function moveDirection(direction) {
     }
 }
 
-// ========== 長按拖曳功能（支援桌面滑鼠 + 手機觸控）==========
+// ========== 長按拖曳功能 ==========
 function setupLongPressDrag(element) {
     let startX, startY, startLeft, startTop;
     let isLongPress = false;
     let longPressTimer = null;
-    
     function onStart(e) {
         const target = e.target;
-        if (target.classList && target.classList.contains('dpad-btn')) {
-            return;
-        }
-        
+        if (target.classList?.contains('dpad-btn')) return;
         e.preventDefault();
-        
         const clientX = e.clientX !== undefined ? e.clientX : (e.touches ? e.touches[0].clientX : 0);
         const clientY = e.clientY !== undefined ? e.clientY : (e.touches ? e.touches[0].clientY : 0);
-        
         startX = clientX;
         startY = clientY;
-        
         const left = parseFloat(element.style.left);
         const top = parseFloat(element.style.top);
         startLeft = isNaN(left) ? element.offsetLeft : left;
         startTop = isNaN(top) ? element.offsetTop : top;
-        
         longPressTimer = setTimeout(() => {
             isLongPress = true;
             element.style.cursor = 'grabbing';
             element.style.opacity = '0.8';
-            
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             document.addEventListener('touchmove', onMove);
             document.addEventListener('touchend', onEnd);
         }, 500);
     }
-    
     function onMove(e) {
         if (!isLongPress) return;
         e.preventDefault();
-        
         const clientX = e.clientX !== undefined ? e.clientX : (e.touches ? e.touches[0].clientX : 0);
         const clientY = e.clientY !== undefined ? e.clientY : (e.touches ? e.touches[0].clientY : 0);
-        
         const deltaX = clientX - startX;
         const deltaY = clientY - startY;
-        
         let newLeft = startLeft + deltaX;
         let newTop = startTop + deltaY;
-        
         const maxLeft = window.innerWidth - element.offsetWidth;
         const maxTop = window.innerHeight - element.offsetHeight;
-        
         newLeft = Math.min(Math.max(0, newLeft), maxLeft);
         newTop = Math.min(Math.max(0, newTop), maxTop);
-        
         element.style.position = 'fixed';
         element.style.left = newLeft + 'px';
         element.style.top = newTop + 'px';
         element.style.bottom = 'auto';
         element.style.right = 'auto';
     }
-    
     function onEnd() {
         clearTimeout(longPressTimer);
         if (isLongPress) {
@@ -1497,9 +1272,151 @@ function setupLongPressDrag(element) {
         document.removeEventListener('touchmove', onMove);
         document.removeEventListener('touchend', onEnd);
     }
-    
     element.addEventListener('mousedown', onStart);
     element.addEventListener('touchstart', onStart, { passive: false });
+}
+
+// ========== 地圖高亮相關函數 ==========
+let currentPreviewRegion = null;
+let previewTimer = null;
+let currentCountyIndex = -1;
+
+function previewRegion(regionName) {
+    if (cruiseInt) clearInterval(cruiseInt);
+    if (previewTimer) clearTimeout(previewTimer);
+    currentPreviewRegion = regionName;
+    d3.selectAll(".county").each(function() {
+        const currentClass = d3.select(this).attr("class");
+        if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
+            d3.select(this).attr("class", "county");
+        }
+    });
+    d3.selectAll(".county-label").classed("label-visible", false);
+    const kinmenBtn = d3.select("#btn-Kinmen");
+    const lienchiangBtn = d3.select("#btn-Lienchiang");
+    const penghuBtn = d3.select("#btn-Penghu");
+    if (!kinmenBtn.classed("locked")) kinmenBtn.style("background", "").style("color", "");
+    if (!lienchiangBtn.classed("locked")) lienchiangBtn.style("background", "").style("color", "");
+    if (!penghuBtn.classed("locked")) penghuBtn.style("background", "").style("color", "");
+    const showIslands = !["直轄市", "市", "縣"].includes(regionName);
+    if(regionName === "離島區域") {
+        d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
+        d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
+        d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
+    }
+    groups[regionName].forEach(c => {
+        d3.select(`#path-${c}`).classed(groupStyles[regionName], true);
+        d3.selectAll(`.label-${c}`).classed("label-visible", true);
+        if (showIslands && subIslands[c]) {
+            subIslands[c].forEach(isl => d3.selectAll(`.label-${isl}`).classed("label-visible", true));
+        }
+    });
+    if (regionName === "離島區域") {
+        d3.select("#fantasy-path-連江縣").classed(groupStyles[regionName], true);
+        d3.select("#fantasy-matsu-label").classed("label-visible", true);
+        if (window.fantasyExtraLabelElements) {
+            window.fantasyExtraLabelElements.forEach(el => { el.classed("label-visible", true); });
+        }
+    }
+}
+function previewCounty(countyName) {
+    if (cruiseInt) clearInterval(cruiseInt);
+    d3.selectAll(".county").classed("reg-national", false);
+    d3.selectAll(".county").each(function() {
+        const currentClass = d3.select(this).attr("class");
+        if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
+            d3.select(this).attr("class", "county");
+        }
+    });
+    d3.selectAll(".county-label").classed("label-visible", false);
+    d3.select(`#path-${countyName}`).classed("reg-system", true);
+    d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
+    if (countyName === "金門縣") {
+        d3.select("#btn-Kinmen").style("background", uiConfig.accentColor).style("color", "#000");
+    } else if (countyName === "連江縣") {
+        d3.select("#btn-Lienchiang").style("background", uiConfig.accentColor).style("color", "#000");
+    } else if (countyName === "澎湖縣") {
+        d3.select("#btn-Penghu").style("background", uiConfig.accentColor).style("color", "#000");
+    }
+}
+function previewCountyWithNational(countyName, isNational) {
+    if (nationalHighlightTimeout) clearTimeout(nationalHighlightTimeout);
+    if (isNational) {
+        d3.selectAll(".county").classed("reg-national", true);
+    } else {
+        d3.selectAll(".county").classed("reg-national", false);
+        d3.selectAll(".county").each(function() {
+            const currentClass = d3.select(this).attr("class");
+            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
+                d3.select(this).attr("class", "county");
+            }
+        });
+        d3.select(`#path-${countyName}`).classed("reg-system", true);
+        d3.selectAll(`.label-${countyName}`).classed("label-visible", true);
+    }
+}
+function clearPreview() {
+    if (previewTimer) clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+        const hoveredItem = document.querySelector('.vertical-item:hover');
+        if (hoveredItem) {
+            const img = hoveredItem.querySelector('img');
+            let regionName = null;
+            if (img) {
+                const alt = img.getAttribute('alt');
+                if (alt === '北') regionName = '北臺灣';
+                else if (alt === '中') regionName = '中臺灣';
+                else if (alt === '南') regionName = '南臺灣';
+                else if (alt === '東') regionName = '東臺灣';
+                else if (alt === '西') regionName = '離島區域';
+            }
+            if (regionName) { previewRegion(regionName); }
+            return;
+        }
+        d3.selectAll(".county").classed("reg-national", false);
+        d3.selectAll(".county").each(function() {
+            const currentClass = d3.select(this).attr("class");
+            if (!currentClass || (!currentClass.includes("active") && !currentClass.includes("favorite"))) {
+                d3.select(this).attr("class", "county");
+            }
+        });
+        d3.selectAll(".county-label").classed("label-visible", false);
+        const kinmenBtn = d3.select("#btn-Kinmen");
+        const lienchiangBtn = d3.select("#btn-Lienchiang");
+        const penghuBtn = d3.select("#btn-Penghu");
+        if (!kinmenBtn.classed("locked")) kinmenBtn.style("background", "").style("color", "");
+        if (!lienchiangBtn.classed("locked")) lienchiangBtn.style("background", "").style("color", "");
+        if (!penghuBtn.classed("locked")) penghuBtn.style("background", "").style("color", "");
+        currentPreviewRegion = null;
+        if (isCruise && !cruiseInt) { cruiseInt = setInterval(runStep, uiConfig.cruiseInterval); }
+    }, 50);
+}
+function selectRegionAndClose(regionName) {
+    clearAllHighlights();
+    if (groups[regionName]) { highlightGroup(regionName); }
+    if (activeMenu) {
+        const dropdown = document.getElementById(`dropdown-${activeMenu}`);
+        const trigger = document.querySelector(`#menu-${activeMenu} .menu-trigger`);
+        if (dropdown) dropdown.classList.remove("show");
+        if (trigger) {
+            trigger.classList.remove("active");
+            trigger.classList.remove("locked");
+        }
+        activeMenu = null;
+    }
+}
+function clearAllHighlights() {
+    d3.selectAll(".county").classed("reg-national", false);
+    d3.selectAll(".county").attr("class", "county");
+    d3.selectAll(".county-label").classed("label-visible", false);
+    d3.select("#btn-Kinmen").style("background", "").style("color", "");
+    d3.select("#btn-Lienchiang").style("background", "").style("color", "");
+    d3.select("#btn-Penghu").style("background", "").style("color", "");
+    d3.select("#fantasy-path-連江縣").classed("reg-islands", false);
+    d3.select("#fantasy-matsu-label").classed("label-visible", false);
+    if (window.fantasyExtraLabelElements) {
+        window.fantasyExtraLabelElements.forEach(el => { el.classed("label-visible", false); });
+    }
 }
 
 // ========== 初始化 ==========
@@ -1518,39 +1435,30 @@ if (panel && !panel.classList.contains("open")) {
     panel.classList.add("open");
     body.classList.add("panel-open");
 }
-
 const handleText = document.getElementById("panel-handle-text");
 if (panel && handleText) {
-    if (panel.classList.contains("open")) {
-        handleText.innerHTML = "📷 收起照片";
-    } else {
-        handleText.innerHTML = "📷 展開照片";
-    }
+    if (panel.classList.contains("open")) handleText.innerHTML = "📷 收起照片";
+    else handleText.innerHTML = "📷 展開照片";
 }
 
-// 初始化：等待地圖載入完成後顯示臺北市照片
 window.addEventListener('taiwanMapDataReady', function onReady() {
-    // 更新總照片數
+    ensureRating();
     updateTotalCount();
-    
-    // 顯示臺北市照片
     const taipeiPath = d3.select("#path-臺北市");
-    if (taipeiPath.node()) {
-        selectCounty("臺北市", taipeiPath);
-    } else {
-        renderThumbs("臺北市");
-    }
-    
-    // 顯示引導提示
+    if (taipeiPath.node()) selectCounty("臺北市", taipeiPath);
+    else renderThumbs("臺北市");
     showGuide();
-    
     window.removeEventListener('taiwanMapDataReady', onReady);
 });
 
-// 設定長按拖曳（手機版 + 桌面版）
 const dpad = document.querySelector('.mobile-dpad');
-if (dpad) {
-    setupLongPressDrag(dpad);
-}
+if (dpad) setupLongPressDrag(dpad);
 
-// 預設不啟動巡航
+// 綁定分類選單項目點擊事件
+document.querySelectorAll('.category-item').forEach(item => {
+    item.addEventListener('click', () => {
+        const cat = item.getAttribute('data-cat');
+        const keywords = item.getAttribute('data-keywords');
+        selectCategory(cat, keywords);
+    });
+});
