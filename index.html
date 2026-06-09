@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>台灣景點照片地圖 | 249個台灣回憶景點</title>
-    <meta name="description" content="探索台灣249個景點照片，從台北101到墾丁沙灘，從阿里山到太魯閣，互動地圖帶你回憶台灣之美。">
-    <meta name="keywords" content="台灣景點,台灣地圖,台灣旅遊,景點照片,台灣回憶,台北101,日月潭,阿里山">
+    <title>臺灣景點照片地圖</title>
+    <meta name="description" content="探索台灣景點照片，互動地圖帶你回憶台灣之美。">
+    <meta name="keywords" content="台灣景點,台灣地圖,台灣旅遊,景點照片,台灣回憶">
     <link rel="stylesheet" href="css/style.css">
     
     <!-- Google tag (gtag.js) -->
@@ -67,7 +67,7 @@
 </div>
 
 <!-- 記憶數字 -->
-<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">321</b></div>
+<div class="memory-badge">📸 全台記憶：<b id="total-count" style="color:var(--accent)">0</b></div>
 
 <!-- 收藏景點縮圖預覽 -->
 <div id="favorite-preview" class="favorite-preview" style="display: none;">
@@ -84,9 +84,6 @@
     <div class="menu-item" id="menu-transport">
         <div class="menu-trigger" onclick="toggleMenu('transport')">🚗 交通運輸</div>
         <div class="menu-dropdown-vertical" id="dropdown-transport"></div>
-    </div>
-    <div class="menu-item" id="menu-food">
-        <div class="menu-trigger" id="food-mode-trigger" onclick="toggleFoodMode()">🍜 美食推介</div>
     </div>
     <div class="menu-item" id="menu-monthly">
         <div class="menu-trigger" id="monthly-mode-trigger" onclick="toggleMonthlyPanel()">📅 每月必去</div>
@@ -107,6 +104,20 @@
             </div>
         </div>
     </div>
+    <!-- 分類探索按鈕 -->
+    <div class="menu-item" id="menu-category">
+        <div class="menu-trigger" onclick="toggleCategoryPanel()">🔍 分類探索</div>
+        <div id="category-panel" class="category-panel">
+            <div class="category-grid">
+                <div class="category-item" data-cat="吃貨必去" data-keywords="美食,伴手禮">🍜 吃貨必去</div>
+                <div class="category-item" data-cat="打卡秘境" data-keywords="彩繪,燈塔,特殊地景,天空步道,教堂,彩虹">📸 打卡秘境</div>
+                <div class="category-item" data-cat="玩樂放鬆" data-keywords="玩樂,遊樂園,水上活動,休閒">🎢 玩樂放鬆</div>
+                <div class="category-item" data-cat="特色體驗" data-keywords="DIY,溫泉,賞螢,熱氣球,放天燈">✨ 特色體驗</div>
+                <div class="category-item" data-cat="人文古蹟" data-keywords="文化,老街,廟宇,書院,燈會,藝術村">🏛️ 人文古蹟</div>
+                <div class="category-item" data-cat="自然生態" data-keywords="生態,山,海,湖,森林,溼地,瀑布">🌿 自然生態</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 收藏按鈕 + 面板 -->
@@ -124,7 +135,11 @@
 <!-- 右側照片面板 -->
 <div id="photoPanel" class="photo-panel">
     <div class="panel-handle" onclick="togglePhotoPanel()" id="panel-handle-text">📷 收起照片</div>
-    <div class="panel-title"><span id="cname">等待探索</span></div>
+    <div class="panel-title">
+        <button id="nationwide-btn" class="nationwide-btn" onclick="showNationwidePhotos()">🌍 全國</button>
+        <button id="exit-category-btn" class="nationwide-btn exit-category-btn" style="display: none;" onclick="exitCategoryMode()">✖ 退出分類模式</button>
+        <span id="cname">點擊縣市開始探索</span>
+    </div>
     <div id="thumb-grid"></div>
 </div>
 
@@ -133,6 +148,23 @@
     <div id="modal-box" onclick="event.stopPropagation()">
         <img id="modal-img" src="">
         <div id="modal-title" style="font-size:1.5em;color:var(--accent);margin-top:10px;"></div>
+    </div>
+</div>
+
+<!-- 引導提示 overlay -->
+<div id="guide-overlay" class="guide-overlay" style="display: none;">
+    <div class="guide-card">
+        <div class="guide-icon">👋</div>
+        <div class="guide-title">歡迎來到臺灣旅遊地圖</div>
+        <div class="guide-list">
+            <div class="guide-item">🎮 按 ↑ ↓ ← → 或點擊地圖切換縣市</div>
+            <div class="guide-item">🔍 分類探索瀏覽全台各類景點</div>
+            <div class="guide-item">▶ 巡航模式自動輪播縣市，瞬間環遊臺灣</div>
+            <div class="guide-item">🖱️ 長按方向盤可拖曳移動位置</div>
+            <div class="guide-item">⭐ 點擊星星收藏景點</div>
+            <div class="guide-item">🌙 點擊右上角🌙可切換深色/淺色模式</div>
+        </div>
+        <button class="guide-btn" onclick="closeGuide()">開始探索 →</button>
     </div>
 </div>
 
